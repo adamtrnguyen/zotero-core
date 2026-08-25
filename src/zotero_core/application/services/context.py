@@ -468,7 +468,7 @@ class ZoteroContext:
             "text": text[:max_chars],
         }
 
-    def get_sources_with_annotations(self, *, include_citekeys: bool = True) -> dict:
+    def get_sources_with_annotations(self, *, include_citekeys: bool = True, include_all: bool = False) -> dict:
         """Sources carrying annotations, in the standard envelope.
 
         ⚠ Returned a BARE LIST, which cannot carry a `read_mode` at all — so this was the
@@ -476,7 +476,7 @@ class ZoteroContext:
         an `immutable=1` snapshot. The annotation store already recorded it in
         `last_read_mode`; nothing outside the tests ever read it.
         """
-        sources = self.annotations.get_sources_with_annotations()
+        sources = self.annotations.get_sources_with_annotations(include_all=include_all)
         if include_citekeys:
             sources = self._with_citekeys(sources)
         return rows(

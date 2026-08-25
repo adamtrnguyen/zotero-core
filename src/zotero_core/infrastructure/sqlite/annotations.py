@@ -65,8 +65,12 @@ class ZoteroAnnotationStore:
             annotations = [self._without_comment(ann) for ann in annotations]
         return annotations
 
-    def get_sources_with_annotations(self) -> list[ZoteroSource]:
+    def get_sources_with_annotations(self, *, include_all: bool = False) -> list[ZoteroSource]:
         """Every attachment carrying annotations, with the item it belongs to.
+
+        When ``include_all`` is True, returns ALL attachments (including those
+        with zero annotations) so the Obsidian inserter can offer a full-library
+        fuzzy search.
 
         ⚠ THIS USED TO HIDE 5 OF 18. The query started from `items parent` and required
         `att.contentType = 'application/pdf'`, so it dropped two whole shapes:
@@ -84,9 +88,10 @@ class ZoteroAnnotationStore:
         `list_pdfs` still restricts to PDFs on purpose — it enumerates the PDF corpus for
         `omni-rag`, which is a different question.
         """
+        having_clause = "" if include_all else "HAVING ann_count > 0"
         with self._connect() as conn:
             rows = conn.execute(
-                """
+                f"""
                 WITH annotated AS (
                     SELECT
                         att.itemID       AS att_id,
@@ -96,9 +101,9 @@ class ZoteroAnnotationStore:
                         COUNT(ia.itemID) AS ann_count
                     FROM itemAttachments att
                     JOIN items a ON a.itemID = att.itemID
-                    JOIN itemAnnotations ia ON ia.parentItemID = att.itemID
+                    LEFT JOIN itemAnnotations ia ON ia.parentItemID = att.itemID
                     GROUP BY att.itemID
-                    HAVING ann_count > 0
+                    {having_clause}
                 ),
                 titles AS (
                     SELECT id.itemID, idv.value AS title

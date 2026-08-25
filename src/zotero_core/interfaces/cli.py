@@ -64,6 +64,7 @@ def build_parser() -> argparse.ArgumentParser:
     resolve.add_argument("--pdf-key", action="store_true")
     sources = sub.add_parser("sources", parents=[common])
     sources.add_argument("--no-citekeys", action="store_true")
+    sources.add_argument("--all", action="store_true", help="Include items without annotations")
 
     # Catalogue reads. Kept at PARITY with the MCP tool table on purpose: the read
     # surface split into "what the CLI can do" and "what an agent can do" once before,
@@ -192,7 +193,7 @@ _HANDLERS: dict[str, Callable[[ZoteroContext, argparse.Namespace], Any]] = {
         include_comments=not a.no_comments,
     ),
     "resolve-pdf": _resolve_pdf,
-    "sources": lambda ctx, a: ctx.get_sources_with_annotations(include_citekeys=not a.no_citekeys),
+    "sources": lambda ctx, a: ctx.get_sources_with_annotations(include_citekeys=not a.no_citekeys, include_all=getattr(a, "all", False)),
     "item": lambda ctx, a: ctx.get_item(a.item_key),
     "duplicate": _duplicate,
     "pdfs": lambda ctx, a: ctx.list_pdfs(limit=a.limit),
