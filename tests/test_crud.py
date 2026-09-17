@@ -31,6 +31,7 @@ from zotero_core.application.services.collections import (
 )
 from zotero_core.application.services.verbs import (
     add_tags,
+    create_annotation,
     create_item,
     import_attachment,
     link_attachment,
@@ -161,6 +162,7 @@ def test_each_verb_reports_which_transport_served_it(zotero, tmp_path, session):
     pdf.write_bytes(b"%PDF-1.4\n")
     zotero.add("PARENT12", "The Parent", item_type="book", tags=["keepme"])
     zotero.add("SECOND12", "The Second", item_type="book")
+    zotero.add("ATTACH12", "The PDF", item_type="attachment", parent="PARENT12")
     src = zotero.add_collection("Src")
     dst = zotero.add_collection("Dst")
     zotero.add_to_collection("PARENT12", src)
@@ -172,6 +174,15 @@ def test_each_verb_reports_which_transport_served_it(zotero, tmp_path, session):
     record("zotero_link_attachment", link_attachment("PARENT12", str(pdf), **kw))
     record("zotero_import_attachment", import_attachment("PARENT12", str(pdf), **kw))
     record("zotero_write_note", write_note("<p>n</p>", parent_item_key="PARENT12", **kw))
+    record(
+        "zotero_create_annotation",
+        create_annotation(
+            "ATTACH12",
+            {"pageIndex": 0, "rects": [[10.0, 20.0, 30.0, 40.0]]},
+            annotation_text="covered text",
+            **kw,
+        ),
+    )
     record("zotero_create_collection", create_collection("Fresh", **kw))
     record("zotero_update_metadata", update_metadata("PARENT12", {"volume": "1"}, **kw))
     record("zotero_add_tags", add_tags("PARENT12", ["x"], **kw))

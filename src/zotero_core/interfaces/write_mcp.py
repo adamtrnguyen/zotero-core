@@ -87,6 +87,7 @@ from zotero_core.application.services.session import WriteSession
 from zotero_core.application.services.verbs import (
     add_tags,
     check_keys,
+    create_annotation,
     create_item,
     import_attachment,
     link_attachment,
@@ -334,6 +335,55 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "tags": {"type": "array", "items": {"type": "string"}},
         },
         required=("content",),
+    ),
+    _ToolSpec(
+        name="zotero_create_annotation",
+        verb=create_annotation,
+        description=(
+            "Create a PDF annotation on an ATTACHMENT key (not the parent item key — "
+            "annotations hang off the PDF). `annotation_position` is "
+            '{"pageIndex": int, "rects": [[x0,y0,x1,y1], ...]} in PDF coordinate space; '
+            "one rect per wrapped line. Computing those rects is the caller's job — "
+            "PyMuPDF's page.search_for() returns exactly this shape. Verification is "
+            "partial: it confirms the annotation exists on the right parent, and CANNOT "
+            "confirm the rects landed where you meant."
+        ),
+        properties={
+            "parent_item_key": {
+                "type": "string",
+                "description": (
+                    "Attachment key (8 uppercase alphanumerics), not the "
+                    "bibliographic item."
+                ),
+            },
+            "annotation_position": {
+                "type": "object",
+                "description": 'e.g. {"pageIndex": 1, "rects": [[405.2,719.3,499.4,729.2]]}',
+            },
+            "annotation_type": {
+                "type": "string",
+                "enum": ["highlight", "underline", "note", "text"],
+                "default": "highlight",
+            },
+            "annotation_text": {
+                "type": "string",
+                "description": "The covered text. Required for highlight and underline.",
+            },
+            "annotation_color": {
+                "type": "string",
+                "description": (
+                    "7-char hex. Zotero's palette: #ffd400 #ff6666 #5fb236 "
+                    "#2ea8e5 #a28ae5 #e56eee #f19837 #aaaaaa. Defaults to yellow."
+                ),
+            },
+            "annotation_comment": {"type": "string"},
+            "page_label": {
+                "type": "string",
+                "description": "Printed page label, which need not equal pageIndex.",
+            },
+            "tags": {"type": "array", "items": {"type": "string"}},
+        },
+        required=("parent_item_key", "annotation_position"),
     ),
     _ToolSpec(
         name="zotero_create_collection",

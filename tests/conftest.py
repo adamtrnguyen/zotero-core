@@ -559,6 +559,11 @@ class FakeCookjohn(CookjohnClient):
                     },
                     tags=arguments.get("tags"),
                     creators=arguments.get("creators"),
+                    # Honoured on the generic path too, not just `action="import"`:
+                    # cookjohn's write_item schema carries `parentItemKey`, and an
+                    # annotation is created through here with one. Dropping it left
+                    # itemAnnotations.parentItemID NULL, which the schema rejects.
+                    parent=arguments.get("parentItemKey"),
                 )
         return {"action": arguments.get("action"), "success": True, "data": {"itemKey": key}}
 

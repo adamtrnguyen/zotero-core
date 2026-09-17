@@ -47,6 +47,7 @@ side effect of setting a different one.
 
 from __future__ import annotations
 
+import json
 import os
 
 from zotero_core.application.results import ok
@@ -1006,6 +1007,221 @@ def write_note(
         verification=_verify_note(session.store, key, parent_item_key, action),
         undo_manifest=manifest,
         undo_call=f"trash_items(['{key}'])" if action == 'create' and key else None,
+        versions=info,
+    )
+
+
+# --------------------------------------------------------------------------
+# annotations
+# --------------------------------------------------------------------------
+
+#: The annotation types Zotero's reader produces. `image` and `ink` are listed
+#: because the schema accepts them, but this verb only fills the fields a text
+#: annotation needs -- an image annotation also carries an attached bitmap that
+#: nothing here creates.
+ANNOTATION_TYPES = ("highlight", "underline", "note", "text", "image", "ink")
+
+#: Types whose whole point is the text they cover. A highlight with no
+#: `annotationText` reads back as an empty band in the GUI.
+_TEXT_BEARING = ("highlight", "underline")
+
+
+def _annotation_preflight(
+    parent_item_key: str,
+    annotation_type: str,
+    annotation_text: str | None,
+    annotation_color: str | None,
+    annotation_position: dict | None,
+) -> dict:
+    """Shape checks for an annotation write, before Zotero is touched.
+
+    Returns the `fields` dict to send. Deliberately NOT routed through
+    `_create_preflight`: that one mandates `title` and runs a title/DOI/ISBN duplicate
+    check, and both are wrong here. An annotation has no title -- Zotero rejects the
+    field outright on this item type -- and two highlights of the same sentence in two
+    colours are a normal thing to want, not a duplicate to refuse.
+    """
+    if annotation_type not in ANNOTATION_TYPES:
+        raise WriteBlocked(
+            Reason.UNKNOWN_ITEM_TYPE,
+            f"annotation_type must be one of {ANNOTATION_TYPES} (got {annotation_type!r})",
+            {"annotation_type": annotation_type},
+        )
+    check_keys([parent_item_key])
+    if annotation_type in _TEXT_BEARING and not (annotation_text or "").strip():
+        raise WriteBlocked(
+            Reason.MISSING_REQUIRED_FIELD,
+            f"annotation_text is required for a {annotation_type} -- without it the "
+            f"annotation reads back as an empty band in the reader",
+        )
+    if not isinstance(annotation_position, dict):
+        raise WriteBlocked(
+            Reason.MISSING_REQUIRED_FIELD,
+            "annotation_position must be a dict with pageIndex and rects",
+            {"given": type(annotation_position).__name__},
+        )
+    if "pageIndex" not in annotation_position or "rects" not in annotation_position:
+        raise WriteBlocked(
+            Reason.MISSING_REQUIRED_FIELD,
+            "annotation_position needs both pageIndex and rects",
+            {"given_keys": sorted(annotation_position)},
+        )
+    rects = annotation_position["rects"]
+    if not isinstance(rects, list) or not rects:
+        raise WriteBlocked(
+            Reason.MISSING_REQUIRED_FIELD,
+            "annotation_position['rects'] must be a non-empty list of [x0,y0,x1,y1]",
+        )
+    for r in rects:
+        if not (isinstance(r, (list, tuple)) and len(r) == 4):
+            raise WriteBlocked(
+                Reason.MISSING_REQUIRED_FIELD,
+                f"each rect must be [x0,y0,x1,y1] (got {r!r})",
+            )
+    colour = (annotation_color or "#ffd400").strip()
+    if not (colour.startswith("#") and len(colour) == 7):
+        raise WriteBlocked(
+            Reason.MISSING_REQUIRED_FIELD,
+            f"annotation_color must be a 7-character hex like '#ffd400' (got {colour!r})",
+        )
+    return {
+        "annotationType": annotation_type,
+        "annotationColor": colour,
+        "annotationPosition": json.dumps(annotation_position),
+    }
+
+
+def _sort_index(position: dict) -> str:
+    """Zotero's reader orders annotations by this string, not by dateAdded.
+
+    Format observed on existing annotations in the library: three zero-padded fields
+    joined by pipes -- page, an offset, and the vertical position. Zotero recomputes it
+    when the reader edits an annotation, so a close-enough value orders correctly and is
+    then corrected in place; an ABSENT one sorts the annotation to the top of the sidebar
+    regardless of where it sits on the page.
+    """
+    page = int(position.get("pageIndex", 0))
+    tops = [r[1] for r in position.get("rects") or [] if len(r) == 4]
+    top = int(min(tops)) if tops else 0
+    return f"{page:05d}|{0:06d}|{top:05d}"
+
+
+def _verify_annotation(store: Catalogue, key: str | None, parent_item_key: str) -> dict:
+    """Confirm the annotation exists and hangs off the attachment it was aimed at.
+
+    ⚠ PARTIAL, on the same terms as `_verify_note`. The read layer has no accessor for
+    `annotationPosition`, so this catches "it was not created" and "it landed on the
+    wrong parent", and CANNOT catch "the rects are wrong" -- which is the failure mode
+    most likely to happen, because the rects come from a PDF text search outside this
+    package. Open the reader to check placement.
+    """
+    if not key:
+        return {
+            "verified": "unverified",
+            "note": "cookjohn returned no annotation key, so there is nothing to read back",
+        }
+    states = store.item_states([key])
+    state = states.get(key)
+    if state is None or not state.exists:
+        return {
+            "verified": "unverified",
+            "read_mode": states.read_mode,
+            "note": (
+                "the annotation does not read back. If read_mode is immutable=1 this may "
+                "be a snapshot lagging the commit rather than a failed write"
+            ),
+        }
+    verdict: dict = {
+        "verified": True,
+        "read_mode": states.read_mode,
+        "item_type": state.item_type,
+        "rects_checked": False,
+    }
+    if state.parent_key != parent_item_key:
+        verdict["verified"] = "unverified"
+        verdict["disagreed"] = (
+            f"expected parent {parent_item_key!r}, found {state.parent_key!r}"
+        )
+    return verdict
+
+
+def create_annotation(
+    parent_item_key: str,
+    annotation_position: dict,
+    *,
+    annotation_type: str = "highlight",
+    annotation_text: str | None = None,
+    annotation_color: str | None = None,
+    annotation_comment: str | None = None,
+    page_label: str | None = None,
+    tags: list[str] | None = None,
+    session: WriteSession,
+) -> dict:
+    """Create a PDF annotation on an ATTACHMENT.
+
+    `parent_item_key` is the attachment key, NOT the parent bibliographic item --
+    annotations hang off the PDF, and pointing this at a `journalArticle` is the
+    mistake this verb's WRONG_ITEM_TYPE check exists to catch early.
+
+    `annotation_position` is `{"pageIndex": int, "rects": [[x0,y0,x1,y1], ...]}` in PDF
+    coordinate space. Getting those rects is OUTSIDE this package: the caller runs a
+    coordinate-aware text search over the PDF (PyMuPDF's `page.search_for` returns
+    exactly this shape, one rect per wrapped line) and passes the result in. That split
+    is deliberate -- adding a PDF parser to a package whose `dependencies = []` is a
+    much larger commitment than adding a verb.
+
+    ⚠ UNVERIFIED AT TIME OF WRITING: whether cookjohn's `write_item` accepts
+    `itemType: "annotation"` at all. What IS established is narrower -- a create call
+    carrying `title` fails, and it fails inside Zotero ("'title' is not a valid field
+    for type 'annotation'"), which proves the request reaches item creation but not that
+    a title-less one succeeds. cookjohn exposes `get_annotations` and
+    `search_annotations` and no annotation writer, so this verb rides the generic
+    `write_item` path. If it returns COOKJOHN_REFUSED, the capability is missing from
+    the plugin and no change on this side will add it.
+    """
+    fields = _annotation_preflight(
+        parent_item_key, annotation_type, annotation_text, annotation_color,
+        annotation_position,
+    )
+    info = session.require("cookjohn")
+    states = require_items(session.store, [parent_item_key])
+    parent_type = states[parent_item_key].item_type
+    if parent_type != "attachment":
+        raise WriteBlocked(
+            Reason.WRONG_ITEM_TYPE,
+            f"{parent_item_key} is a {parent_type}, not an attachment -- annotations "
+            f"hang off the PDF, not off the bibliographic item",
+            {"item_key": parent_item_key, "item_type": parent_type},
+        )
+
+    if annotation_text:
+        fields["annotationText"] = annotation_text
+    if annotation_comment:
+        fields["annotationComment"] = annotation_comment
+    if page_label:
+        fields["annotationPageLabel"] = str(page_label)
+    fields["annotationSortIndex"] = _sort_index(annotation_position)
+
+    arguments: dict = {
+        "action": "create",
+        "itemType": "annotation",
+        "parentItemKey": parent_item_key,
+        "fields": fields,
+    }
+    if tags:
+        arguments["tags"] = list(tags)
+    reply = session.cookjohn.call("write_item", arguments)
+    key = session.cookjohn.find_key(reply)
+    return ok(
+        "create_annotation",
+        transport="cookjohn",
+        annotation_key=key,
+        parent_item_key=parent_item_key,
+        annotation_type=annotation_type,
+        cookjohn=reply,
+        verification=_verify_annotation(session.store, key, parent_item_key),
+        undo_manifest=None,
+        undo_call=f"trash_items(['{key}'])" if key else None,
         versions=info,
     )
 
