@@ -21,6 +21,7 @@ The gap had teeth on both sides:
 from __future__ import annotations
 
 import dataclasses
+import email.message
 
 import pytest
 
@@ -104,7 +105,7 @@ def test_a_write_session_cannot_be_mutated_mid_verb():
         duplicates=CatalogueDuplicateFinder(),
     )
     with pytest.raises(dataclasses.FrozenInstanceError):
-        session.linker = CookjohnClient()
+        session.linker = CookjohnClient()  # ty: ignore[invalid-assignment]
 
 
 # --------------------------------------------------------------------------
@@ -127,7 +128,9 @@ def test_an_http_error_still_means_zotero_is_running(monkeypatch):
     import urllib.error
 
     def _raise(*_a, **_k):
-        raise urllib.error.HTTPError("http://127.0.0.1:23119/", 404, "NF", {}, io.BytesIO(b""))
+        raise urllib.error.HTTPError(
+            "http://127.0.0.1:23119/", 404, "NF", email.message.Message(), io.BytesIO(b"")
+        )
 
     monkeypatch.setattr("urllib.request.urlopen", _raise)
     assert HttpZoteroProbe().is_running() is True

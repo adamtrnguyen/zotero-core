@@ -14,6 +14,7 @@ is the point of moving to a table.
 from __future__ import annotations
 
 import ast
+import email.message
 import inspect
 import pathlib
 import sqlite3
@@ -548,7 +549,9 @@ def test_a_bridge_that_ERRORS_is_not_reported_as_unreachable(monkeypatch):
     body = io.BytesIO(b'{"ok": false, "error": "no browser window is open"}')
 
     def _raise(*_a, **_k):
-        raise urllib.error.HTTPError("http://x/window-state", 500, "Server Error", {}, body)
+        raise urllib.error.HTTPError(
+            "http://x/window-state", 500, "Server Error", email.message.Message(), body
+        )
 
     monkeypatch.setattr("urllib.request.urlopen", _raise)
     with pytest.raises(ZoteroBridgeError) as e:

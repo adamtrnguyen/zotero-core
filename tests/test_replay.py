@@ -89,9 +89,9 @@ def test_a_hostile_manifest_is_listed_as_unreplayable_rather_than_run(journal, s
 
 def test_an_unknown_verb_is_not_replayable(journal, session):
     _manifest(journal, "trash_items", "20260819-120000-000001", "drop_everything(['A'])")
-    assert undo_mod.list_entries(
+    assert (undo_mod.list_entries(
         str(journal), journal=session.journal
-    )[0].blocked_reason.startswith("`drop_everything`")
+    )[0].blocked_reason or "").startswith("`drop_everything`")
 
 
 # --------------------------------------------------------------------------
@@ -120,7 +120,7 @@ def test_a_manifest_with_no_inverse_is_listed_but_blocked(journal, session):
     _manifest(journal, "update_metadata", "20260819-120000-000001", None)
     entry = undo_mod.list_entries(str(journal), journal=session.journal)[0]
     assert entry.replayable is False
-    assert "no inverse recorded" in entry.blocked_reason
+    assert "no inverse recorded" in (entry.blocked_reason or "")
 
 
 def test_a_placeholder_inverse_is_blocked(journal, session):
@@ -134,14 +134,14 @@ def test_a_placeholder_inverse_is_blocked(journal, session):
     )
     entry = undo_mod.list_entries(str(journal), journal=session.journal)[0]
     assert entry.replayable is False
-    assert "template" in entry.blocked_reason
+    assert "template" in (entry.blocked_reason or "")
 
 
 def test_a_truncated_manifest_is_reported_not_hidden(journal, session):
     (journal / "trash_items-20260819-120000-000001.json").write_text("{not json")
     entry = undo_mod.list_entries(str(journal), journal=session.journal)[0]
     assert entry.replayable is False
-    assert "unreadable" in entry.blocked_reason
+    assert "unreadable" in (entry.blocked_reason or "")
 
 
 def test_an_empty_journal_lists_nothing(journal, session):

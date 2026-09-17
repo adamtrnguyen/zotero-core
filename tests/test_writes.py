@@ -13,6 +13,7 @@ loudly rather than reach Adam's Zotero.
 
 from __future__ import annotations
 
+import email.message
 import io
 import json
 import urllib.error
@@ -109,7 +110,11 @@ def test_zotero_running_without_the_plugin_is_a_different_failure(monkeypatch):
     _stub_urlopen(
         monkeypatch,
         error=urllib.error.HTTPError(
-            "http://127.0.0.1:23119/zotero-linker/ping", 404, "Not Found", {}, io.BytesIO(b"")
+            "http://127.0.0.1:23119/zotero-linker/ping",
+            404,
+            "Not Found",
+            email.message.Message(),
+            io.BytesIO(b""),
         ),
     )
     with pytest.raises(WriteBlocked) as e:
