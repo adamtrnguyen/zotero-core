@@ -493,6 +493,13 @@ class FakeLinker(LinkerClient):
                     parent=payload["parentItemKey"],
                 )
             return {"ok": True, "attachmentKey": key}
+        if path == "create-annotation":
+            key = f"ANN{len(self.posts):05d}"
+            if self.apply:
+                self.builder.add(
+                    key, "", "annotation", parent=payload["parentItemKey"],
+                )
+            return {"ok": True, "annotationKey": key}
         keys = payload["itemKeys"]
         if self.apply:
             for key in keys:

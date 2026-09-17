@@ -339,6 +339,7 @@ TOOLS: tuple[_ToolSpec, ...] = (
     _ToolSpec(
         name="zotero_create_annotation",
         verb=create_annotation,
+        transport="linker",
         description=(
             "Create a PDF annotation on an ATTACHMENT key (not the parent item key — "
             "annotations hang off the PDF). `annotation_position` is "

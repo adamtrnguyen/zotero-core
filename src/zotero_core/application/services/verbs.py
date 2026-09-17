@@ -1170,20 +1170,24 @@ def create_annotation(
     is deliberate -- adding a PDF parser to a package whose `dependencies = []` is a
     much larger commitment than adding a verb.
 
-    ⚠ UNVERIFIED AT TIME OF WRITING: whether cookjohn's `write_item` accepts
-    `itemType: "annotation"` at all. What IS established is narrower -- a create call
-    carrying `title` fails, and it fails inside Zotero ("'title' is not a valid field
-    for type 'annotation'"), which proves the request reaches item creation but not that
-    a title-less one succeeds. cookjohn exposes `get_annotations` and
-    `search_annotations` and no annotation writer, so this verb rides the generic
-    `write_item` path. If it returns COOKJOHN_REFUSED, the capability is missing from
-    the plugin and no change on this side will add it.
+    Served by the LINKER, not cookjohn, and that is a finding rather than a preference.
+    cookjohn's `write_item` routes `fields` through Zotero's `setField()`, which only
+    accepts itemData fields, so a live create answers:
+
+        Failed to set field "annotationType":
+        "annotationType" is not a valid itemData field
+
+    Annotation properties are not itemData -- they live in `itemAnnotations` behind
+    their own accessors (`item.annotationType = ...`). In-process plugin JS can reach
+    them and an itemData write cannot, which is the same reason the linker exists for
+    linked-file attachments. Endpoint: POST /zotero-linker/create-annotation,
+    linker >= 0.4.0.
     """
     fields = _annotation_preflight(
         parent_item_key, annotation_type, annotation_text, annotation_color,
         annotation_position,
     )
-    info = session.require("cookjohn")
+    info = session.require("linker")
     states = require_items(session.store, [parent_item_key])
     parent_type = states[parent_item_key].item_type
     if parent_type != "attachment":
@@ -1202,23 +1206,19 @@ def create_annotation(
         fields["annotationPageLabel"] = str(page_label)
     fields["annotationSortIndex"] = _sort_index(annotation_position)
 
-    arguments: dict = {
-        "action": "create",
-        "itemType": "annotation",
-        "parentItemKey": parent_item_key,
-        "fields": fields,
-    }
+    payload: dict = dict(fields)
+    payload["parentItemKey"] = parent_item_key
     if tags:
-        arguments["tags"] = list(tags)
-    reply = session.cookjohn.call("write_item", arguments)
-    key = session.cookjohn.find_key(reply)
+        payload["tags"] = list(tags)
+    reply = session.linker.post("create-annotation", payload)
+    key = reply.get("annotationKey")
     return ok(
         "create_annotation",
-        transport="cookjohn",
+        transport="linker",
         annotation_key=key,
         parent_item_key=parent_item_key,
         annotation_type=annotation_type,
-        cookjohn=reply,
+        linker=reply,
         verification=_verify_annotation(session.store, key, parent_item_key),
         undo_manifest=None,
         undo_call=f"trash_items(['{key}'])" if key else None,
