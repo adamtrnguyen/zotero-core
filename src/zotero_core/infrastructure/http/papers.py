@@ -30,7 +30,7 @@ from html.parser import HTMLParser
 from zotero_core.domain.errors import Reason, WriteBlocked
 from zotero_core.domain.ports.paper_resolver import ResolvedPaper
 
-USER_AGENT = "zotero-core (+https://github.com/adamtrnguyen/zotero-context)"
+USER_AGENT = "zotero-core (+https://github.com/adamtrnguyen/zotero-core)"
 TIMEOUT = 30.0
 MAX_PDF_BYTES = 200 * 1024 * 1024
 
