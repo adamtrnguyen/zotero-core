@@ -96,8 +96,17 @@ plugin name into its parameter names.
 
 ```bash
 uv sync --extra mcp
-zotero-core-write-mcp          # stdio server; `len(write_mcp.TOOLS)` for the count
+zotero-core-mcp                # stdio server, registered as `zotero`; `len(write_mcp.TOOLS)` for the write count
 ```
+
+**Saving a paper from a URL** is `zotero_save_paper` (preview: `zotero_resolve_paper`). It
+adds no write path: `application/services/papers.py` resolves the URL through the
+`PaperResolver` port (arXiv API, DOI content negotiation, `citation_*` meta tags), then calls
+`create_item` -- so the duplicate gate applies, and a repeat arXiv save is a DOI BLOCK --
+and `import_attachment` for the PDF. A PDF that cannot be fetched is reported in the result,
+not raised, because the item already exists. A bot-wall page or one without scholarly
+metadata is refused (`paper_unresolved`). This replaced ZotLink, whose generic scraper saved
+bot walls ("Client Challenge", "Verifying your browser | OpenReview") as papers.
 
 Every verb above, one tool each (`zotero_trash_items`, `zotero_set_tags`, …), plus
 `zotero_write_preflight` — which probes both plugins and optionally resolves keys

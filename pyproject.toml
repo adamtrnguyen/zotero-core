@@ -27,11 +27,9 @@ mcp = [
 
 [project.scripts]
 zotero-core = "zotero_core.interfaces.cli:main"
-# Two adapters for now, one registration each. They collapse into a single
-# `zotero-core-mcp --read-only` once the read surface is complete; until then the read
-# server is the only one safe to expose in a context that must not write.
-zotero-core-read-mcp = "zotero_core.interfaces.read_mcp:run"
-zotero-core-write-mcp = "zotero_core.interfaces.write_mcp:run"
+# ONE server: reads, gated writes and paper saving. `--read-only` serves the reads alone,
+# for a context that must not write -- the job the separate read server used to do.
+zotero-core-mcp = "zotero_core.interfaces.mcp_server:run"
 
 [dependency-groups]
 # PEP 735 rather than extras: `--extra mcp` is a runtime capability a consumer opts

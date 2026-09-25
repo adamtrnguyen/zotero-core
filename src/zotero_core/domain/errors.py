@@ -33,6 +33,8 @@ class Reason:
     WRONG_ITEM_TYPE = "wrong_item_type"
     # creates
     DUPLICATE_ITEM = "duplicate_item"
+    # a URL with no scholarly metadata behind it, or a bot wall in front of it
+    PAPER_UNRESOLVED = "paper_unresolved"
     # destructive-by-replacement — see `writes.set_tags` / `replace_creators`
     REFUSING_TO_REPLACE = "refusing_to_replace"
     REFUSING_CASCADE_DELETE = "refusing_cascade_delete"

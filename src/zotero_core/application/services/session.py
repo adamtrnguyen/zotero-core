@@ -29,6 +29,7 @@ from zotero_core.domain.ports.catalogue import Catalogue
 from zotero_core.domain.ports.collection_catalogue import CollectionCatalogue
 from zotero_core.domain.ports.duplicates import DuplicateFinder
 from zotero_core.domain.ports.journal import Journal
+from zotero_core.domain.ports.paper_resolver import PaperResolver
 from zotero_core.domain.ports.write_transport import Cookjohn, Linker
 from zotero_core.domain.ports.zotero_probe import ZoteroProbe
 
@@ -44,6 +45,7 @@ class WriteSession:
     journal: Journal
     probe: ZoteroProbe
     duplicates: DuplicateFinder
+    papers: PaperResolver
 
     def require(self, *needs: str) -> dict:
         # Imported here rather than at module scope: `liveness` imports nothing from this

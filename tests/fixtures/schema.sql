@@ -67,6 +67,7 @@ INSERT INTO itemTypes (itemTypeID, typeName) VALUES (8, 'bookSection');
 INSERT INTO itemTypes (itemTypeID, typeName) VALUES (11, 'conferencePaper');
 INSERT INTO itemTypes (itemTypeID, typeName) VALUES (22, 'journalArticle');
 INSERT INTO itemTypes (itemTypeID, typeName) VALUES (28, 'note');
+INSERT INTO itemTypes (itemTypeID, typeName) VALUES (31, 'preprint');
 
 -- Real fieldIDs from the live database. The reads join on fieldName rather than the
 -- number, so what these rows buy is that a query written against the real numbers

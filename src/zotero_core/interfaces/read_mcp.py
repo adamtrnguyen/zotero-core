@@ -628,7 +628,7 @@ def run() -> None:
         pass
 
 
-def _render_call(name: str, arguments: dict[str, Any]) -> str:
+def render_call(name: str, arguments: dict[str, Any]) -> str:
     """One tool call, rendered. The ONLY part of the server this adapter still owns.
 
     Every failure becomes data with a `code` a caller can branch on -- "a locked database, a
@@ -643,4 +643,4 @@ def _render_call(name: str, arguments: dict[str, Any]) -> str:
 
 
 async def main() -> None:
-    await run_stdio(SERVER_NAME, TOOLS, _render_call)
+    await run_stdio(SERVER_NAME, TOOLS, render_call)

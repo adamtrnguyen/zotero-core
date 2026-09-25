@@ -36,11 +36,13 @@ from zotero_core.domain.ports.duplicates import DuplicateFinder
 from zotero_core.domain.ports.gui_bridge import GuiBridge
 from zotero_core.domain.ports.journal import Journal
 from zotero_core.domain.ports.library_catalogue import LibraryCatalogue
+from zotero_core.domain.ports.paper_resolver import PaperResolver
 from zotero_core.domain.ports.search_catalogue import SearchCatalogue
 from zotero_core.domain.ports.write_transport import Cookjohn, Linker
 from zotero_core.domain.ports.zotero_probe import ZoteroProbe
 from zotero_core.infrastructure.http.bbt import DEFAULT_BBT_RPC_URL, BetterBibTeXClient
 from zotero_core.infrastructure.http.bridge import DEFAULT_BRIDGE_URL, ZoteroBridgeClient
+from zotero_core.infrastructure.http.papers import WebPaperResolver
 from zotero_core.infrastructure.journal import FileJournal
 from zotero_core.infrastructure.probe import HttpZoteroProbe
 from zotero_core.infrastructure.sqlite.annotations import (
@@ -65,6 +67,7 @@ def build_write_session(
     journal: Journal | None = None,
     probe: ZoteroProbe | None = None,
     duplicates: DuplicateFinder | None = None,
+    papers: PaperResolver | None = None,
 ) -> WriteSession:
     """Assemble one write session, defaulting each port to its real adapter.
 
@@ -92,6 +95,7 @@ def build_write_session(
         duplicates=(
             duplicates if duplicates is not None else CatalogueDuplicateFinder(store)
         ),
+        papers=papers if papers is not None else WebPaperResolver(),
     )
 
 

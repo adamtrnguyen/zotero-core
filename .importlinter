@@ -86,7 +86,7 @@ layers =
 name = application layers: replay above verbs above liveness above results
 type = layers
 layers =
-    zotero_core.application.services.replay
+    zotero_core.application.services.replay | zotero_core.application.services.papers
     zotero_core.application.services.verbs : zotero_core.application.services.collections
     zotero_core.application.services.liveness
     zotero_core.application.results

@@ -29,6 +29,7 @@ from zotero_core.application.services.collections import (
     remove_items_from_collection,
     update_collection,
 )
+from zotero_core.application.services.papers import save_paper
 from zotero_core.application.services.verbs import (
     add_tags,
     create_annotation,
@@ -44,6 +45,7 @@ from zotero_core.application.services.verbs import (
     write_note,
 )
 from zotero_core.domain.errors import Reason, WriteBlocked
+from zotero_core.domain.ports.paper_resolver import ResolvedPaper
 from zotero_core.infrastructure.sqlite.duplicates import check_duplicate, clean_doi, clean_isbn
 
 from .conftest import FakeCookjohn
@@ -171,6 +173,13 @@ def test_each_verb_reports_which_transport_served_it(zotero, tmp_path, session):
         seen[tool] = result["transport"]
 
     record("zotero_create_item", create_item("book", {"title": "New"}, **kw))
+    session.papers.papers["https://arxiv.org/abs/2401.00001"] = ResolvedPaper(
+        source="arxiv",
+        item_type="preprint",
+        fields={"title": "A Saved Paper", "DOI": "10.48550/arXiv.2401.00001"},
+        pdf_url="https://arxiv.org/pdf/2401.00001",
+    )
+    record("zotero_save_paper", save_paper("https://arxiv.org/abs/2401.00001", **kw))
     record("zotero_link_attachment", link_attachment("PARENT12", str(pdf), **kw))
     record("zotero_import_attachment", import_attachment("PARENT12", str(pdf), **kw))
     record("zotero_write_note", write_note("<p>n</p>", parent_item_key="PARENT12", **kw))

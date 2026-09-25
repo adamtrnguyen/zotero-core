@@ -81,6 +81,7 @@ from zotero_core.application.services.collections import (
     remove_items_from_collection,
     update_collection,
 )
+from zotero_core.application.services.papers import resolve_paper, save_paper
 from zotero_core.application.services.replay import list_entries as _list_entries
 from zotero_core.application.services.replay import undo as _undo
 from zotero_core.application.services.session import WriteSession
@@ -234,6 +235,45 @@ def preflight(item_keys: list[str] | None = None, *, session: WriteSession) -> d
 
 TOOLS: tuple[_ToolSpec, ...] = (
     # ---------------- CREATE ----------------
+    _ToolSpec(
+        name="zotero_save_paper",
+        verb=save_paper,
+        description=(
+            "Save a paper from its URL: arXiv (abs/pdf/html), any DOI or doi.org link, or a "
+            "landing page with citation meta tags (PMLR, OpenReview, ACL, CVF, most "
+            "publishers). Creates the item through zotero_create_item's gates -- a repeat "
+            "arXiv save is a DOI match and is REFUSED unless force=True -- then downloads "
+            "and imports the PDF. A PDF that cannot be fetched is reported in `pdf`, not "
+            "raised: the item already exists. A bot-check page or a page without scholarly "
+            "metadata is refused (paper_unresolved), never saved under its HTML title."
+        ),
+        properties={
+            "url": {"type": "string", "description": "The paper's URL or DOI."},
+            "collection_key": {
+                "type": "string",
+                "description": "File the new item into this collection.",
+            },
+            "tags": {"type": "array", "items": {"type": "string"}},
+            "attach_pdf": {
+                "type": "boolean",
+                "description": "Download and import the PDF. Default true.",
+            },
+            "force": _FORCE,
+        },
+        required=("url",),
+    ),
+    _ToolSpec(
+        name="zotero_resolve_paper",
+        verb=resolve_paper,
+        transport="none",
+        description=(
+            "Preview what zotero_save_paper would create for a URL -- item type, fields, "
+            "creators, PDF URL -- and the duplicate check against the library. Writes "
+            "nothing."
+        ),
+        properties={"url": {"type": "string", "description": "The paper's URL or DOI."}},
+        required=("url",),
+    ),
     _ToolSpec(
         name="zotero_create_item",
         verb=create_item,
@@ -685,7 +725,7 @@ def run() -> None:
         pass
 
 
-def _render_call(name: str, arguments: dict[str, Any]) -> str:
+def render_call(name: str, arguments: dict[str, Any]) -> str:
     """One tool call, rendered. The ONLY part of the server this adapter still owns.
 
     The `WriteBlocked` branch is the whole reason this adapter exists rather than a raw
@@ -703,7 +743,7 @@ def _render_call(name: str, arguments: dict[str, Any]) -> str:
 
 
 async def main() -> None:
-    await run_stdio(SERVER_NAME, TOOLS, _render_call)
+    await run_stdio(SERVER_NAME, TOOLS, render_call)
 
 
 def _render(payload: Any) -> str:

@@ -60,6 +60,7 @@ TYPE_IDS = {
     "conferencePaper": 11,
     "journalArticle": 22,
     "note": 28,
+    "preprint": 31,
 }
 
 
@@ -781,6 +782,39 @@ class StubProbe:
         return self.running
 
 
+class FakePaperResolver:
+    """Satisfies `domain.ports.paper_resolver.PaperResolver` offline.
+
+    `papers` maps a URL to what it resolves to; `pdf_bytes` is what every download
+    returns (None makes the download fail). The session fixture uses this, so no test can
+    reach arXiv or doi.org by accident.
+    """
+
+    def __init__(self, papers=None, pdf_bytes: bytes | None = b"%PDF-1.4\n", tmp_dir=None):
+        self.papers = dict(papers or {})
+        self.pdf_bytes = pdf_bytes
+        self.tmp_dir = tmp_dir
+        self.downloads: list[str] = []
+
+    def resolve(self, url: str):
+        from zotero_core.domain.errors import Reason, WriteBlocked
+
+        if url not in self.papers:
+            raise WriteBlocked(Reason.PAPER_UNRESOLVED, f"no fake paper for {url}", {"url": url})
+        return self.papers[url]
+
+    def download_pdf(self, pdf_url: str) -> str:
+        import tempfile
+
+        self.downloads.append(pdf_url)
+        if self.pdf_bytes is None:
+            raise RuntimeError(f"fake download failure for {pdf_url}")
+        handle = tempfile.NamedTemporaryFile(suffix=".pdf", dir=self.tmp_dir, delete=False)
+        with handle:
+            handle.write(self.pdf_bytes)
+        return handle.name
+
+
 @pytest.fixture
 def session(zotero, linker, cookjohn, tmp_path):
     """One `WriteSession` wired to the fakes and the temp library.
@@ -798,6 +832,7 @@ def session(zotero, linker, cookjohn, tmp_path):
         store=zotero.store(),
         journal=FileJournal(str(tmp_path / "journal")),
         probe=StubProbe(running=True),
+        papers=FakePaperResolver(tmp_dir=str(tmp_path)),
     )
 
 

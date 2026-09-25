@@ -141,9 +141,15 @@ Full rationale, transport split and the incident that motivated the gates:
 ## MCP
 
 ```bash
-uv run zotero-core-read-mcp     # the read tools
-uv run zotero-core-write-mcp    # the gated write tools; call zotero_write_preflight first
+uv run zotero-core-mcp              # the ONE server: reads, gated writes, paper saving
+uv run zotero-core-mcp --read-only  # reads only, for a context that must not write
 ```
+
+Registered once, as `zotero`. It concatenates the read and write tables and routes each
+call to the adapter that owns it (`interfaces/mcp_server.py`), so each keeps its own error
+envelope. Until 2026-09-25 these were two servers (`zotero-context`, `zotero-writes`) and
+ZotLink was a third; `zotero_save_paper` and `zotero_resolve_paper` replace ZotLink
+(see `docs/write-surface.md`).
 
 Both adapters declare their tools in **one `TOOLS` table** from which the schema and the
 dispatch are derived, so adding a tool is one entry rather than a three-place change

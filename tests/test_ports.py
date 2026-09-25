@@ -39,6 +39,7 @@ from zotero_core.domain.ports.write_transport import Cookjohn, Linker
 from zotero_core.domain.ports.zotero_probe import ZoteroProbe
 from zotero_core.infrastructure.http.bbt import BetterBibTeXClient
 from zotero_core.infrastructure.http.bridge import ZoteroBridgeClient
+from zotero_core.infrastructure.http.papers import WebPaperResolver
 from zotero_core.infrastructure.journal import FileJournal
 from zotero_core.infrastructure.probe import HttpZoteroProbe
 from zotero_core.infrastructure.sqlite.annotations import ZoteroAnnotationStore
@@ -103,6 +104,7 @@ def test_a_write_session_cannot_be_mutated_mid_verb():
         journal=FileJournal(),
         probe=StubProbe(),
         duplicates=CatalogueDuplicateFinder(),
+        papers=WebPaperResolver(),
     )
     with pytest.raises(dataclasses.FrozenInstanceError):
         session.linker = CookjohnClient()  # ty: ignore[invalid-assignment]
