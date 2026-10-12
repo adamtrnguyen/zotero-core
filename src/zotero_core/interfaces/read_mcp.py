@@ -292,6 +292,34 @@ _CITEKEYS_PROP = {
     "default": True,
     "description": "Join Better BibTeX citekeys. Set false to skip the BBT round trip.",
 }
+_COLLECTION_KEY_PROP = {
+    "type": "string",
+    "description": "8-char collection key (8 uppercase alphanumerics), as listed by "
+    "get_zotero_collections or find_zotero_collections. A 'C<n>' id is a GUI tree-row "
+    "id, not a key.",
+}
+
+# Repeated on every tool whose answer is keyed by an attachment, because the parent/attachment
+# mix-up is the commonest wrong call and a tool description is the one place it is always seen.
+_ATTACHMENT_FOOTER = (
+    " Keys: annotations, reader positions and zotero://open-pdf take the ATTACHMENT key; "
+    "resolve_zotero_pdf maps a citekey or parent key to it."
+)
+
+# Zotero colours carry no built-in meaning; any meaning is the reader's own convention.
+_COLOUR_RULES = (
+    " A colour has no meaning of its own: never invent one. Report the hex unless the user "
+    "supplies a legend; with one, group by meaning and report unmapped hexes as unlabelled. "
+    "Quote comments verbatim."
+)
+
+# What a reader tool's `position` holds, which differs by content type.
+_READER_POSITION = (
+    " Position by content type: PDF -> `page_index` (0-based) and `page_number` (the 1-based "
+    "page INDEX, not the printed page label); HTML snapshot -> `scroll_y_percent`; EPUB -> "
+    "`cfi`. The citekey comes from the reader's `parent_key`. Deep link: "
+    "zotero://open-pdf/library/items/<attachment_key>?page=<page_number>."
+)
 
 TOOLS: tuple[_ToolSpec, ...] = (
     _ToolSpec(
@@ -306,7 +334,12 @@ TOOLS: tuple[_ToolSpec, ...] = (
     _ToolSpec(
         name="get_zotero_active_reader",
         verb=get_zotero_active_reader,
-        description="Return the active Zotero reader tab, optionally with annotations.",
+        description=(
+            "The focused Zotero reader tab -- 'what am I reading' -- with its attachment "
+            "key, parent key, title, citekey and reading position, optionally with its "
+            "annotations. Live GUI state through the bridge plugin, so Zotero must be "
+            "running." + _READER_POSITION + _ATTACHMENT_FOOTER
+        ),
         properties={
             "include_annotations": {"type": "boolean", "default": False},
             "annotation_types": _ANNOTATION_TYPES_PROP,
@@ -316,7 +349,12 @@ TOOLS: tuple[_ToolSpec, ...] = (
     _ToolSpec(
         name="get_zotero_open_readers",
         verb=get_zotero_open_readers,
-        description="Return all open Zotero reader tabs, optionally with annotations.",
+        description=(
+            "Every open Zotero reader tab, each with attachment key, parent key, title, "
+            "citekey, whether it is the active tab and its reading position, optionally "
+            "with annotations. Live GUI state through the bridge plugin, so Zotero must be "
+            "running." + _READER_POSITION + _ATTACHMENT_FOOTER
+        ),
         properties={
             "include_annotations": {"type": "boolean", "default": False},
             "annotation_types": _ANNOTATION_TYPES_PROP,
@@ -328,7 +366,9 @@ TOOLS: tuple[_ToolSpec, ...] = (
         verb=get_zotero_annotations,
         description=(
             "Return highlights and comments for a Zotero ATTACHMENT key (not the parent "
-            "item key -- use resolve_zotero_pdf to get one from a parent or citekey)."
+            "item key -- use resolve_zotero_pdf to get one from a parent or citekey). Each "
+            "carries `color` (hex), `page_label` and a `zotero_url` deep link."
+            + _COLOUR_RULES + _ATTACHMENT_FOOTER
         ),
         properties={
             "attachment_key": {"type": "string", "description": "8-char attachment key."},
@@ -343,12 +383,26 @@ TOOLS: tuple[_ToolSpec, ...] = (
         verb=resolve_zotero_pdf,
         description=(
             "Resolve a Better BibTeX citekey, parent item key, or PDF attachment key to "
-            "the {parent_key, attachment_key} pair. When an item has several PDFs, the "
-            "one with the most annotations wins."
+            "the {parent_key, attachment_key} pair. The returned `attachment_key` is what "
+            "zotero://open-pdf, get_zotero_annotations and zotero_create_annotation need. "
+            "When an item has several PDFs, the one with the most annotations wins. "
+            "`attachment_key` is null when nothing resolves (unknown citekey, or a parent "
+            "with no PDF child)."
         ),
         properties={
-            "identifier": {"type": "string"},
-            "is_attachment_key": {"type": "boolean", "default": False},
+            "identifier": {
+                "type": "string",
+                "description": "A citekey (looked up through Better BibTeX, so Zotero must "
+                "be running), an 8-char parent item key, or -- with is_attachment_key -- "
+                "an attachment key.",
+            },
+            "is_attachment_key": {
+                "type": "boolean",
+                "default": False,
+                "description": "True when `identifier` is already the attachment key: it "
+                "is returned as-is with parent_key null. Leave false for a citekey or "
+                "parent key.",
+            },
         },
         required=("identifier",),
     ),
@@ -382,7 +436,10 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "Is this already in the library? Returns verdict block|warn|ok WITHOUT "
             "writing. DOI, ISBN or calibre_uuid match blocks; normalised title AND first "
             "author surname warns. Trashed matches are reported, never blocking. This is "
-            "the same gate create_item runs -- ask it BEFORE adding."
+            "the same gate create_item runs -- ask it BEFORE adding. Check `read_mode`: "
+            "'immutable=1' is a point-in-time snapshot taken while Zotero held the write "
+            "lock, so an item added since can be missing and the verdict can read ok "
+            "for a real duplicate."
         ),
         properties={
             "title": {"type": "string"},
@@ -464,7 +521,7 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "recursive view, which is also how the Zotero GUI behaves by default."
         ),
         properties={
-            "collection_key": {"type": "string", "description": "8-char collection key."},
+            "collection_key": _COLLECTION_KEY_PROP,
             "include_trashed": {"type": "boolean", "default": False},
             "library_id": _LIBRARY_PROP,
         },
@@ -525,6 +582,7 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "type. Colour is how people encode meaning in Zotero, so 'the yellow ones' "
             "is a real query. Substring, not fuzzy -- you highlighted the words "
             "yourself. Omit `query` to browse by colour or type alone."
+            + _COLOUR_RULES + _ATTACHMENT_FOOTER
         ),
         properties={
             "query": {"type": "string"},

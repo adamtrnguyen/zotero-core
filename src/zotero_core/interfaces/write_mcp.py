@@ -128,6 +128,19 @@ _ITEM_KEYS = {
     "description": "Zotero item keys (8 uppercase alphanumerics). The whole batch is "
     "refused if any key does not resolve.",
 }
+# Every collection-key parameter shares one description, so the 8-char rule is stated wherever
+# a caller can pass one. A `C<n>` id is what the GUI tree uses internally; it is refused here.
+_COLLECTION_KEY_TEXT = (
+    "8-char collection key (8 uppercase alphanumerics), as listed by get_zotero_collections "
+    "or find_zotero_collections. A 'C<n>' id is a GUI tree-row id, not a key, and is refused."
+)
+
+
+def _collection_key(purpose: str = "") -> dict:
+    prefix = f"{purpose} " if purpose else ""
+    return {"type": "string", "description": prefix + _COLLECTION_KEY_TEXT}
+
+
 _COPY_DB = {
     "type": "boolean",
     "default": False,
@@ -249,10 +262,7 @@ TOOLS: tuple[_ToolSpec, ...] = (
         ),
         properties={
             "url": {"type": "string", "description": "The paper's URL or DOI."},
-            "collection_key": {
-                "type": "string",
-                "description": "File the new item into this collection.",
-            },
+            "collection_key": _collection_key("File the new item into this collection."),
             "tags": {"type": "array", "items": {"type": "string"}},
             "attach_pdf": {
                 "type": "boolean",
@@ -303,10 +313,7 @@ TOOLS: tuple[_ToolSpec, ...] = (
                 "'lastName': 'B'}]. An organisation is {'creatorType': ..., 'name': ...}.",
             },
             "tags": {"type": "array", "items": {"type": "string"}},
-            "collection_key": {
-                "type": "string",
-                "description": "File the new item into this collection.",
-            },
+            "collection_key": _collection_key("File the new item into this collection."),
             "calibre_uuid": {
                 "type": "string",
                 "description": "Stamps 'calibre-uuid: <uuid>' into `extra` (appended, "
@@ -433,14 +440,15 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "Create a collection, refusing a name that already exists at the same "
             "level. The duplicate check is a real gate: two sibling collections with "
             "one name make a name-based lookup nondeterministic, and both Calibre "
-            "importers look their target collection up by name."
+            "importers look their target collection up by name. Returns the new 8-char "
+            "`collection_key`. Zotero also SELECTS the new collection in its window, so "
+            "the next save from the browser Connector lands in it."
         ),
         properties={
             "name": {"type": "string"},
-            "parent_collection": {
-                "type": "string",
-                "description": "Parent collection key. Omit for a top-level collection.",
-            },
+            "parent_collection": _collection_key(
+                "Parent collection. Omit for a top-level collection."
+            ),
         },
         required=("name",),
     ),
@@ -539,9 +547,9 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "parameter leaves the parent alone."
         ),
         properties={
-            "collection_key": {"type": "string"},
+            "collection_key": _collection_key(),
             "name": {"type": "string"},
-            "parent_collection": {"type": "string"},
+            "parent_collection": _collection_key("New parent; '' for the top level."),
         },
         required=("collection_key",),
     ),
@@ -549,7 +557,7 @@ TOOLS: tuple[_ToolSpec, ...] = (
         name="zotero_add_items_to_collection",
         verb=add_items_to_collection,
         description="File items into a collection. The items are not moved or copied.",
-        properties={"collection_key": {"type": "string"}, "item_keys": _ITEM_KEYS},
+        properties={"collection_key": _collection_key(), "item_keys": _ITEM_KEYS},
         required=("collection_key", "item_keys"),
     ),
     _ToolSpec(
@@ -560,7 +568,7 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "not a delete. Journalled, because the distinction between this and "
             "zotero_trash_items is the one a caller in a hurry gets wrong."
         ),
-        properties={"collection_key": {"type": "string"}, "item_keys": _ITEM_KEYS},
+        properties={"collection_key": _collection_key(), "item_keys": _ITEM_KEYS},
         required=("collection_key", "item_keys"),
     ),
     _ToolSpec(
@@ -578,8 +586,8 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "`not_in_source`. Re-reads BOTH collections afterwards."
         ),
         properties={
-            "from_collection_key": {"type": "string"},
-            "to_collection_key": {"type": "string"},
+            "from_collection_key": _collection_key("Source collection."),
+            "to_collection_key": _collection_key("Target collection."),
             "item_keys": {
                 "description": "Zotero item keys (8 uppercase alphanumerics).",
                 "items": {"type": "string"},
@@ -627,7 +635,7 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "only undo there is."
         ),
         properties={
-            "collection_key": {"type": "string"},
+            "collection_key": _collection_key(),
             "delete_items": {
                 "type": "boolean",
                 "default": False,

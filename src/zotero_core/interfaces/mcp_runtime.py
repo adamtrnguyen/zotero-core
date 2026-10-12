@@ -36,8 +36,21 @@ from zotero_core.interfaces.tool_spec import ToolSpec
 CallTool = Callable[[str, dict[str, Any]], str]
 
 
-async def run_stdio(server_name: str, tools: Sequence[ToolSpec], call_tool: CallTool) -> None:
-    """Serve `tools` over stdio until the client disconnects."""
+async def run_stdio(
+    server_name: str,
+    tools: Sequence[ToolSpec],
+    call_tool: CallTool,
+    *,
+    instructions: str | None = None,
+) -> None:
+    """Serve `tools` over stdio until the client disconnects.
+
+    `instructions` is the server-level guidance a client shows its model once, beside the
+    tool list. It is passed TWICE on purpose: `Server(...)` stores it, but the
+    `InitializationOptions` below are built by hand rather than by
+    `server.create_initialization_options()`, and the hand-built ones are what the client
+    actually receives. Passing it to `Server` alone would send nothing.
+    """
     try:
         import mcp.types as types
         from mcp.server import NotificationOptions, Server
@@ -50,7 +63,7 @@ async def run_stdio(server_name: str, tools: Sequence[ToolSpec], call_tool: Call
 
     from zotero_core import __version__
 
-    server = Server(server_name)
+    server = Server(server_name, instructions=instructions)
 
     @server.list_tools()
     async def list_tools() -> list[types.Tool]:
@@ -76,6 +89,7 @@ async def run_stdio(server_name: str, tools: Sequence[ToolSpec], call_tool: Call
                 # Was hardcoded "0.1.0" in both adapters and would have stayed there through
                 # every release; it is the package version now.
                 server_version=__version__,
+                instructions=instructions,
                 capabilities=server.get_capabilities(
                     notification_options=NotificationOptions(),
                     experimental_capabilities={},
