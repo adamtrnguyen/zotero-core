@@ -51,3 +51,31 @@ did.
 
 The description said "until now NOTHING read those manifests, so `undo_call` was advisory text
 you retyped" -- true when `replay.py` landed, history since.
+
+## 2026-11-04: open-pdf `page=` -- index or label? Unresolved, left as is
+
+The server instructions and the reader-position descriptions say
+`zotero://open-pdf/library/items/<ATTACHMENT_KEY>?page=<N>` takes the 1-based page INDEX, not
+the printed page label. `infrastructure/sqlite/annotations.annotation_url` builds each
+annotation's `zotero_url` with `page=<pageLabel>` (plus `annotation=<key>`). The two disagree
+whenever a PDF's labels differ from its positions (roman-numeral front matter, offset
+numbering).
+
+What was checked on 2026-11-04, and why neither side was changed:
+
+- Zotero's own handler source (`components/zotero-protocol-handler.js` /
+  `ZoteroProtocolHandler`) could NOT be read in this session: the raw GitHub fetch returned
+  404 for the guessed path and a repository-tree lookup was refused. The 2018 commit that added
+  the handler (zotero/zotero@609657a) documents `?page=[page]` without saying index or label.
+- Secondary evidence, not verified here, points to an index: the 54yyyu/zotero-mcp PR #613
+  thread reports reading `pageIndex` back from `.zotero-reader-state` on Zotero 10.0.4
+  (`page=6` -> pageIndex 5, `page=3` -> pageIndex 2) and quotes the handler as
+  `pageIndex = page - 1`; zotero/zotero#3392 shows Zotero's note export building `page=` from
+  `position.pageIndex`; a forum report shows `?page=vi` (a roman label) failing with "There is
+  no page numbered 'NaN'".
+- `zotero_url` also carries `annotation=<key>`, which the PR thread reports takes precedence
+  over `page`, so the label-vs-index mismatch may not change where those links land.
+
+To settle it: read the open-pdf branch of Zotero's protocol handler, or open a link with
+`page=<label>` on a PDF whose labels are offset and read the reader state back. Then align
+either the instructions or `annotation_url`.

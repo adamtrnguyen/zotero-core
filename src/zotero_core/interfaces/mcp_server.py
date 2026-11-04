@@ -53,10 +53,13 @@ _INSTRUCTION_LINES: tuple[tuple[str, bool], ...] = (
     ),
     (
         "Changes: zotero_* (zotero_resolve_paper, zotero_list_undo and "
-        "zotero_write_preflight write nothing). Every write is gated: existence -> "
-        "duplicate refusal -> journal -> read-back. For items, trash is the strongest "
-        "delete and zotero_restore_items reverses it; zotero_list_undo / zotero_undo "
-        "replay the journalled inverse.",
+        "zotero_write_preflight write nothing). Every write checks that Zotero is up, "
+        "resolves the keys it names, and re-reads the result. Duplicates are refused by "
+        "zotero_create_item, zotero_save_paper and zotero_create_collection. Writes that "
+        "overwrite or remove something are journalled first with their inverse; creates "
+        "and additions are not. For items, trash is the strongest delete and "
+        "zotero_restore_items reverses it; zotero_list_undo / zotero_undo replay the "
+        "journal, which lives in /tmp and does not survive a reboot.",
         True,
     ),
     (
@@ -75,8 +78,9 @@ _INSTRUCTION_LINES: tuple[tuple[str, bool], ...] = (
         True,
     ),
     (
-        "read_mode 'immutable=1' means a point-in-time snapshot: items created since "
-        "Zotero took the write lock can read as unknown or missing.",
+        "read_mode 'immutable=1' means a snapshot of the main database file: writes "
+        "Zotero has not yet checkpointed out of its WAL can read as unknown or missing. "
+        "Annotations, item collections and resolve_zotero_pdf carry no read_mode.",
         False,
     ),
     (

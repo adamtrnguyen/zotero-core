@@ -345,9 +345,8 @@ TOOLS: tuple[_ToolSpec, ...] = (
         description=(
             "Return highlights and comments for a Zotero ATTACHMENT key (not the parent "
             "item key -- use resolve_zotero_pdf to get one from a parent or citekey). Each "
-            "carries `color` (hex), `page_label` and a `zotero_url` deep link."
-            + _COLOUR_RULES
-            + _ATTACHMENT_FOOTER
+            "carries `color` (hex), `page_label` and a `zotero_url` deep link. Carries no "
+            "`read_mode`." + _COLOUR_RULES + _ATTACHMENT_FOOTER
         ),
         properties={
             "attachment_key": {"type": "string", "description": "8-char attachment key."},
@@ -361,12 +360,14 @@ TOOLS: tuple[_ToolSpec, ...] = (
         name="resolve_zotero_pdf",
         verb=resolve_zotero_pdf,
         description=(
-            "Resolve a Better BibTeX citekey, parent item key, or PDF attachment key to "
-            "the {parent_key, attachment_key} pair. The returned `attachment_key` is what "
-            "zotero://open-pdf, get_zotero_annotations and zotero_create_annotation need. "
-            "When an item has several PDFs, the one with the most annotations wins. "
-            "`attachment_key` is null when nothing resolves (unknown citekey, or a parent "
-            "with no PDF child)."
+            "Resolve a Better BibTeX citekey or a parent item key to the "
+            "{parent_key, attachment_key} pair; an attachment key comes back as-is only "
+            "with is_attachment_key=true (passed as a parent it resolves to null). The "
+            "returned `attachment_key` is what zotero://open-pdf, get_zotero_annotations and "
+            "zotero_create_annotation need. When an item has several PDFs, the one with the "
+            "most annotations wins. `attachment_key` is null when nothing resolves: an "
+            "unknown citekey, Better BibTeX unreachable (Zotero closed), or a parent with no "
+            "PDF child. Carries no `read_mode`."
         ),
         properties={
             "identifier": {
@@ -402,8 +403,9 @@ TOOLS: tuple[_ToolSpec, ...] = (
         description=(
             "Everything about ONE item by key: type, title, fields, creators (in order), "
             "tags, trash state, parent and children. Carries `read_mode` -- `immutable=1` "
-            "means the answer came from a point-in-time snapshot because Zotero held the "
-            "write lock, not from the live database."
+            "means the answer came from a snapshot of the main file because Zotero held "
+            "the lock, so a write Zotero has not yet checkpointed out of its WAL is "
+            "missing."
         ),
         properties={"item_key": {"type": "string", "description": "8-char item key."}},
         required=("item_key",),
@@ -416,9 +418,9 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "writing. DOI, ISBN or calibre_uuid match blocks; normalised title AND first "
             "author surname warns. Trashed matches are reported, never blocking. This is "
             "the same gate create_item runs -- ask it BEFORE adding. Check `read_mode`: "
-            "'immutable=1' is a point-in-time snapshot taken while Zotero held the write "
-            "lock, so an item added since can be missing and the verdict can read ok "
-            "for a real duplicate."
+            "'immutable=1' is a snapshot of the main file taken while Zotero held the lock, "
+            "so an item not yet checkpointed out of the WAL can be missing and the verdict "
+            "can read ok for a real duplicate."
         ),
         properties={
             "title": {"type": "string"},
@@ -437,8 +439,10 @@ TOOLS: tuple[_ToolSpec, ...] = (
         name="list_zotero_pdfs",
         verb=list_zotero_pdfs,
         description=(
-            "Enumerate stored PDF attachments with each one's parent title and "
-            "collection, and the file path on disk."
+            "Enumerate STORED PDF attachments (files copied into ~/Zotero/storage; linked "
+            "files are not listed) in the user library, with each one's parent title, file "
+            "path on disk, and ONE collection: the alphabetically first the parent is filed "
+            "in, null if none. Duplicates are returned as-is."
         ),
         properties={"limit": {"type": "integer", "description": "Omit for all."}},
     ),
@@ -446,9 +450,9 @@ TOOLS: tuple[_ToolSpec, ...] = (
         name="get_zotero_trash_count",
         verb=get_zotero_trash_count,
         description=(
-            "How many items are in the trash of ONE library (the user library by default). "
-            "Scoped like every other read here — a machine with group libraries will see a "
-            "smaller number than Zotero's global trash view."
+            "How many items are in the trash of the USER library (there is no library "
+            "parameter). A machine with group libraries will see a smaller number than "
+            "Zotero's global trash view."
         ),
     ),
     _ToolSpec(
@@ -495,9 +499,11 @@ TOOLS: tuple[_ToolSpec, ...] = (
         name="get_zotero_collection_items",
         verb=get_zotero_collection_items,
         description=(
-            "What is IN a collection: direct members with key, title and type. "
-            "Subcollections are separate entries -- walk get_zotero_collections for the "
-            "recursive view, which is also how the Zotero GUI behaves by default."
+            "What is IN a collection: DIRECT members only, with key, title and type. "
+            "Items in subcollections are not included -- walk get_zotero_collections for "
+            "the recursive view; the Zotero GUI also shows direct members by default. An "
+            "unknown key returns an empty list, not an error: confirm it with "
+            "find_zotero_collections."
         ),
         properties={
             "collection_key": _COLLECTION_KEY_PROP,
@@ -512,7 +518,8 @@ TOOLS: tuple[_ToolSpec, ...] = (
         description=(
             "The INVERSE: which collections each item is filed in. An item can be in "
             "several, or none. Nothing else answers this -- Better BibTeX has only a "
-            "citekey-keyed version, which cannot be reached from an item key."
+            "citekey-keyed version, which cannot be reached from an item key. Carries no "
+            "`read_mode`."
         ),
         properties={
             "item_keys": {"type": "array", "items": {"type": "string"}},
@@ -539,7 +546,8 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "tolerates typos, which Zotero's own substring search does not: 'Langevan "
             "Dynmaics' returns nothing there and scores 0.875 here. Each hit reports "
             "`matched_on` so a surprising result explains itself. Set fuzzy=false for "
-            "exact substring."
+            "exact substring. Creators match on LAST names only. Returns at most `limit` "
+            "hits (default 25) with no total, so a full page may not be all of them."
         ),
         properties={
             "query": {"type": "string"},
@@ -560,7 +568,8 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "Search your highlights and comments, optionally filtered by COLOUR and "
             "type. Colour is how people encode meaning in Zotero, so 'the yellow ones' "
             "is a real query. Substring, not fuzzy -- you highlighted the words "
-            "yourself. Omit `query` to browse by colour or type alone."
+            "yourself. Omit `query` to browse by colour or type alone. Spans EVERY library, "
+            "and returns at most `limit` hits (default 25) with no total."
             + _COLOUR_RULES
             + _ATTACHMENT_FOOTER
         ),
@@ -578,7 +587,8 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "Search the extracted TEXT of indexed PDFs, returning context snippets. "
             "Phrase-aware: matches across line breaks and punctuation. Narrowed by "
             "Zotero's word index first, so it reads only the handful of documents that "
-            "could match rather than all 587 MB of cache."
+            "could match rather than the whole cache. Spans EVERY library, and returns at "
+            "most `limit` documents (default 25) with no total."
         ),
         properties={
             "query": {"type": "string"},
@@ -590,9 +600,11 @@ TOOLS: tuple[_ToolSpec, ...] = (
         name="get_zotero_attachment_text",
         verb=get_zotero_attachment_text,
         description=(
-            "The full extracted text of one attachment. Returns "
-            "`{ok: false, error: 'not_indexed'}` when Zotero never indexed it -- which "
-            "is the honest answer for a scan with no text layer."
+            "The extracted text of one attachment, cut at `max_chars` (default 20000): "
+            "`chars` is the full length and `truncated` says whether it was cut, so raise "
+            "max_chars to read more. Returns `{ok: false, error: 'not_indexed'}` when "
+            "Zotero never indexed it -- which is the honest answer for a scan with no "
+            "text layer."
         ),
         properties={
             "attachment_key": {"type": "string"},
@@ -605,9 +617,11 @@ TOOLS: tuple[_ToolSpec, ...] = (
         verb=list_zotero_libraries,
         description=(
             "Every Zotero library with a live item count: the user's, plus any groups. "
-            "Every other read here is scoped to ONE library and defaults to the user's, "
-            "so this is how you tell 'you have nothing' from 'you are looking in the "
-            "wrong library'."
+            "Collection reads and search_zotero_items take `library_id` (default: the "
+            "user library); item, tag, trash, duplicate and PDF reads are fixed to the "
+            "user library; annotation, source, full-text and attachment-text reads span "
+            "every library. This is how you tell 'you have nothing' from 'you are looking "
+            "in the wrong library'."
         ),
     ),
     _ToolSpec(

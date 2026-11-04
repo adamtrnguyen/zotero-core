@@ -22,8 +22,8 @@ WHAT IT DOES NOT EXPOSE, AND WHY
 --------------------------------
 **No read tools.** `zotero_core.infrastructure` owns reads, and the sibling adapter
 docstring's rule is that wrapping them "would create a second answer to what is in the
-library, which is the exact failure this package exists to end". The registered
-`zotero-context` server already serves that half.
+library, which is the exact failure this package exists to end". `read_mcp` serves that
+half, and `mcp_server` registers both tables as one server.
 
 **No `store` / `linker` / `cookjohn` parameters.** They are dependency-injection seams
 for tests. `test_crud.py` asserts that no verb "leaks a port or a plugin name into its
@@ -135,6 +135,12 @@ def _collection_key(purpose: str = "") -> dict:
     prefix = f"{purpose} " if purpose else ""
     return {"type": "string", "description": prefix + _COLLECTION_KEY_TEXT}
 
+
+_FILE_INTO = (
+    "File the new item into this collection. The item is created FIRST and filed after: "
+    "an unknown key is refused once the item already exists, so confirm the key with "
+    "find_zotero_collections rather than retrying."
+)
 
 _COPY_DB = {
     "type": "boolean",
@@ -256,7 +262,7 @@ TOOLS: tuple[_ToolSpec, ...] = (
         ),
         properties={
             "url": {"type": "string", "description": "The paper's URL or DOI."},
-            "collection_key": _collection_key("File the new item into this collection."),
+            "collection_key": _collection_key(_FILE_INTO),
             "tags": {"type": "array", "items": {"type": "string"}},
             "attach_pdf": {
                 "type": "boolean",
@@ -307,7 +313,7 @@ TOOLS: tuple[_ToolSpec, ...] = (
                 "'lastName': 'B'}]. An organisation is {'creatorType': ..., 'name': ...}.",
             },
             "tags": {"type": "array", "items": {"type": "string"}},
-            "collection_key": _collection_key("File the new item into this collection."),
+            "collection_key": _collection_key(_FILE_INTO),
             "calibre_uuid": {
                 "type": "string",
                 "description": "Stamps 'calibre-uuid: <uuid>' into `extra` (appended, "
@@ -341,11 +347,13 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "Attach a file BY COPY into Zotero's storage. Distinct from "
             "zotero_link_attachment because the consequence lasts: the bytes are "
             "duplicated into ~/Zotero/storage and then sync to the NAS over WebDAV. "
-            "For a library already on disk elsewhere, link instead."
+            "For a library already on disk elsewhere, link instead. The path must be "
+            "ABSOLUTE and the file must exist: Zotero reads it from its own working "
+            "directory, not the caller's."
         ),
         properties={
             "parent_item_key": {"type": "string"},
-            "path": {"type": "string"},
+            "path": {"type": "string", "description": "Absolute path to an existing file."},
             "title": {"type": "string"},
         },
         required=("parent_item_key", "path"),
@@ -385,7 +393,8 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "Create a PDF annotation on an ATTACHMENT key (not the parent item key — "
             "annotations hang off the PDF). `annotation_position` is "
             '{"pageIndex": int, "rects": [[x0,y0,x1,y1], ...]} in PDF coordinate space; '
-            "one rect per wrapped line. Computing those rects is the caller's job — "
+            "pageIndex is 0-BASED (the first page is 0); one rect per wrapped line. "
+            "Computing those rects is the caller's job — "
             "PyMuPDF's page.search_for() returns exactly this shape. Verification is "
             "partial: it confirms the annotation exists on the right parent, and CANNOT "
             "confirm the rects landed where you meant."
@@ -451,9 +460,11 @@ TOOLS: tuple[_ToolSpec, ...] = (
         verb=update_metadata,
         description=(
             "Set metadata fields on ONE regular item. Fields MERGE — only the named "
-            "ones change — and the previous value of each is journalled. Refuses a "
-            "no-op (every field already holding the given value) and refuses notes, "
-            "attachments and annotations, naming the actual type."
+            "ones change — and the previous value of each is journalled. A field that "
+            "did not exist before is reported in `fields_added` and is NOT undoable: "
+            "there is no field-remove, so zotero_undo restores only overwritten values. "
+            "Refuses a no-op (every field already holding the given value) and refuses "
+            "notes, attachments and annotations, naming the actual type."
         ),
         properties={
             "item_key": {"type": "string"},
@@ -461,8 +472,9 @@ TOOLS: tuple[_ToolSpec, ...] = (
                 "type": "object",
                 "description": "{fieldName: value}. The result's `verification` reports "
                 "`normalized_by_zotero` when Zotero rewrote the value (date='2026' is "
-                "stored as '2026-00-00 2026') or mapped a base field onto the item "
-                "type's own (publicationTitle -> proceedingsTitle).",
+                "stored as '2026-00-00 2026') and `mapped_to_type_field` when it stored a "
+                "base field under the item type's own (publicationTitle -> "
+                "proceedingsTitle).",
             },
         },
         required=("item_key", "fields"),
@@ -624,8 +636,11 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "delete_items=True, which sends every member to the trash and requires "
             "force=True as well. Note the asymmetry with items: a trashed item can be "
             "restored, a deleted collection cannot — Zotero's trash holds items — so "
-            "the manifest records the name, parent and every member key, which is the "
-            "only undo there is."
+            "the manifest records the name, parent and member keys, which is the only "
+            "undo there is, and zotero_undo cannot replay it (the rebuilt collection gets "
+            "a new key). The member list is best-effort: capped at 1000, and recorded as "
+            "'<enumeration failed>' if listing fails. The journal lives in "
+            "/tmp/zotero-write-journal and does not survive a reboot."
         ),
         properties={
             "collection_key": _collection_key(),
@@ -644,8 +659,10 @@ TOOLS: tuple[_ToolSpec, ...] = (
         verb=list_undo,
         transport="none",
         description=(
-            "The write journal, newest first. Ten verbs record the call that reverses "
-            "them, and zotero_undo replays it. Each entry says whether it can be "
+            "The write journal, newest first. Verbs that overwrite or remove something "
+            "record the call that reverses them, and zotero_undo replays it; creates and "
+            "additions are not journalled. The journal lives in /tmp/zotero-write-journal "
+            "and does not survive a reboot. Each entry says whether it can be "
             "replayed and, if not, why -- some operations genuinely cannot express an "
             "inverse (a note update does not capture the previous body; recreating a "
             "deleted collection gives it a new key)."
@@ -658,9 +675,11 @@ TOOLS: tuple[_ToolSpec, ...] = (
         transport="none",
         description=(
             "Replay a journal manifest's inverse. Defaults to the most recent REPLAYABLE "
-            "entry. Use dry_run=true first: it resolves and validates the call and shows "
-            "what it would do without doing it, which matters because an undo is itself "
-            "a write and is journalled like any other. The inverse is parsed, never "
+            "entry, and walks BACK: an entry already undone is not replayable, and an "
+            "undo's own entry is skipped unless named (naming it is a redo). dry_run=true "
+            "parses and validates the inverse and shows the call without making it; it "
+            "does not run the verb's gates, so the real undo can still be refused. An "
+            "undo is itself a write and is journalled. The inverse is parsed, never "
             "eval'd -- the callee must be a known undo verb and every argument a literal."
         ),
         properties={
@@ -680,8 +699,8 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "keys, WITHOUT writing anything. Reports each plugin separately: Zotero "
             "being up with one plugin missing is a different job to fix than Zotero "
             "being closed, and it decides which verbs are available (linker serves "
-            "trash, restore and linked files; cookjohn serves items, metadata, notes, "
-            "tags and collections)."
+            "linked files, annotations, trash and restore; cookjohn serves items, saved "
+            "papers, imported files, metadata, notes, tags and collections)."
         ),
         properties={
             "item_keys": {

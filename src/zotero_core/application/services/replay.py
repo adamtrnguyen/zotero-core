@@ -6,14 +6,11 @@ permanently unreachable -- `import zotero_core.application.undo` silently hands 
 function, with an AttributeError on first use. The public verb keeps the good name; the
 module takes a different one.
 
-THE GAP THIS CLOSES
--------------------
-Ten verbs write a manifest containing the call that reverses them. NOTHING READ THEM.
-`write_manifest` had no counterpart: no lister, no parser, no replay, not even a `glob`
-of the journal directory anywhere in the package. The `undo_call` string in a result
-envelope was advisory text a human retyped by hand -- and the manifest's own docstring
-argues that "prose like 'restore it in the GUI' is not an undo; something a human can
-paste is", which was true and still left the pasting to the human.
+WHAT IT READS
+-------------
+Verbs that overwrite or remove something write a manifest carrying the call that reverses
+them (`infrastructure/journal.py` lists which). This module lists, parses and replays
+them, so `undo_call` is not text a human retypes. History: docs/history/journal.md.
 
 WHY NOT `eval`
 --------------

@@ -95,8 +95,12 @@ overwritten is journalled with the call that reverses it. Results are re-read.
 `restore_items` ships alongside. A test greps `dir()` for `purge|destroy|erase` to keep it
 that way.
 
-**Undo is real, not advisory.** Ten verbs journal the call that reverses them, and
-`zotero_list_undo` / `zotero_undo` read that journal. Try `dry_run` first; an undo is itself a write.
+**Undo is real, not advisory.** Verbs that overwrite or remove something journal the call
+that reverses them, and `zotero_list_undo` / `zotero_undo` read that journal. Undo walks
+back: an undone entry is not replayed twice, and an undo's own entry is skipped unless named.
+`dry_run` validates the inverse without running the verb's gates; an undo is itself a write.
+The journal lives in `/tmp/zotero-write-journal` on purpose and does not survive a reboot
+(`docs/history/journal.md`).
 The inverse is **parsed, never `eval`'d**: the callee must be a known undo verb and every
 argument a literal, because the journal lives in `/tmp` where any process can write.
 Entries that genuinely cannot be reversed say why — a note update does not capture the

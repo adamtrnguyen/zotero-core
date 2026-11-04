@@ -80,3 +80,13 @@ Against the source before the update_collection fix it failed on a re-parent. On
 strict xfail: moving an item that is already filed in the target. The inverse is one move back,
 which also unfiles it from the target where it already was; restoring that state needs
 "add back to the source only", which one replayable call cannot express.
+
+## `replay.py`: the gap it closed
+
+Moved from the module docstring. Ten verbs wrote a manifest containing the call that reverses
+them and NOTHING read them: `write_manifest` had no counterpart -- no lister, no parser, no
+replay, not even a `glob` of the journal directory anywhere in the package. The `undo_call`
+string in a result envelope was advisory text a human retyped, although the manifest's own
+docstring argued that "prose like 'restore it in the GUI' is not an undo; something a human can
+paste is". The "Ten verbs" count then went stale in the tool description and README (eleven
+verbs journal, nine of them replayably); the text now names the rule, not a count.
