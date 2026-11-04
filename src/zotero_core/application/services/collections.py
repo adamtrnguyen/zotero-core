@@ -196,17 +196,21 @@ def update_collection(
         )
     info = session.require("cookjohn")
     before = _find_collection(session.cookjohn, collection_key)
+    old_name = before.get("name") or before.get("collectionName")
+    old_parent = before.get("parentCollection") or before.get("parentKey") or None
 
+    # The inverse restores BOTH halves, whichever this call changes: a rename that also
+    # re-parents must come back under the old parent. `""` is cookjohn's top level.
     manifest = session.journal.write_manifest(
         "update_collection",
         before={
             "collection_key": collection_key,
-            "name": before.get("name") or before.get("collectionName"),
-            "parent_collection": before.get("parentCollection") or before.get("parentKey"),
+            "name": old_name,
+            "parent_collection": old_parent,
         },
         inverse=(
-            f"update_collection({collection_key!r}, "
-            f"name={(before.get('name') or before.get('collectionName'))!r})"
+            f"update_collection({collection_key!r}, name={old_name!r}, "
+            f"parent_collection={(old_parent or '')!r})"
         ),
         journal_dir=journal_dir,
     )
@@ -220,7 +224,7 @@ def update_collection(
         "update_collection",
         transport="cookjohn",
         collection_key=collection_key,
-        before={"name": before.get("name") or before.get("collectionName")},
+        before={"name": old_name, "parent_collection": old_parent},
         name=name,
         parent_collection=parent_collection,
         cookjohn=reply,
@@ -254,7 +258,7 @@ def _verify_collection(collections, collection_key: str, *, name=None, parent_ke
     disagreed = {}
     if name is not None and node.name != name:
         disagreed["name"] = {"expected": name, "found": node.name}
-    if parent_key is not None and node.parent_key != parent_key:
+    if parent_key is not None and node.parent_key != (parent_key or None):
         disagreed["parent_key"] = {"expected": parent_key, "found": node.parent_key}
     if disagreed:
         return {"verified": "unverified", "read_mode": tree.read_mode, "disagreed": disagreed}

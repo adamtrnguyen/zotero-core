@@ -239,3 +239,47 @@ def test_a_journal_with_its_own_directory_writes_where_undo_reads(tmp_path, monk
     assert pathlib.Path(written).parent == own
     assert [e.path for e in undo_mod.list_entries(journal=j)] == [written]
     assert not (tmp_path / "module-default").exists()
+
+
+# --------------------------------------------------------------------------
+# inverses that restore the whole prior state
+# --------------------------------------------------------------------------
+
+
+def test_undoing_a_reparent_puts_the_collection_back_under_its_parent(zotero, session):
+    """`update_collection`'s inverse recorded only the old NAME, so undoing a move to the
+    top level left the collection there."""
+    from zotero_core.application.services.collections import update_collection
+
+    parent = zotero.add_collection("Parent", key="PARENT01")
+    child = zotero.add_collection("Child", key="CHILD001", parent=parent)
+    update_collection(child, parent_collection="", session=session)
+    assert zotero.collection_parent(child) is None
+
+    undo_mod.undo(session=session)
+
+    assert zotero.collection_parent(child) == parent
+
+
+def test_undoing_a_rename_of_a_top_level_collection_keeps_it_top_level(zotero, session):
+    """The restored parent of a root collection is the root, not a key."""
+    from zotero_core.application.services.collections import update_collection
+
+    other = zotero.add_collection("Other", key="OTHER001")
+    root = zotero.add_collection("Root", key="ROOT0001")
+    update_collection(root, name="Renamed", parent_collection=other, session=session)
+
+    undo_mod.undo(session=session)
+
+    assert zotero.collection_parent(root) is None
+    assert _collection_names(zotero)["ROOT0001"] == "Root"
+
+
+def _collection_names(zotero) -> dict[str, str]:
+    import sqlite3
+
+    con = sqlite3.connect(f"file:{zotero.path}?mode=ro", uri=True)
+    try:
+        return dict(con.execute("SELECT key, collectionName FROM collections").fetchall())
+    finally:
+        con.close()

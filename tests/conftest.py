@@ -361,9 +361,10 @@ class ZoteroBuilder:
                     (name, cid),
                 )
             if parent is not None:
+                # "" is cookjohn's "move to the top level".
                 con.execute(
                     "UPDATE collections SET parentCollectionID = ? WHERE collectionID = ?",
-                    (self.collections[parent], cid),
+                    (self.collections[parent] if parent else None, cid),
                 )
             con.commit()
         finally:
@@ -386,6 +387,19 @@ class ZoteroBuilder:
         finally:
             con.close()
         self.collections.pop(collection_key, None)
+
+    def collection_parent(self, collection_key: str) -> str | None:
+        con = sqlite3.connect(f"file:{self.path}?mode=ro", uri=True)
+        try:
+            row = con.execute(
+                "SELECT p.key FROM collections c "
+                "LEFT JOIN collections p ON p.collectionID = c.parentCollectionID "
+                "WHERE c.collectionID = ?",
+                (self.collections[collection_key],),
+            ).fetchone()
+            return row[0] if row else None
+        finally:
+            con.close()
 
     def collection_members(self, collection_key: str) -> list[str]:
         con = sqlite3.connect(f"file:{self.path}?mode=ro", uri=True)
@@ -641,14 +655,19 @@ class FakeCookjohn(CookjohnClient):
         key = arguments["collectionKey"]
         for row_key, name in self._collection_rows():
             if row_key == key:
-                return {"key": key, "name": name, "parentCollection": None}
+                parent = self.builder.collection_parent(key)
+                return {"key": key, "name": name, "parentCollection": parent}
         return {}
 
     def _get_collection_items(self, arguments: dict):
         return [{"key": k} for k in self.builder.collection_members(arguments["collectionKey"])]
 
     def _create_collection(self, arguments: dict):
-        key = self.builder.add_collection(arguments["name"]) if self.apply else "COLLNEW1"
+        key = (
+            self.builder.add_collection(arguments["name"], parent=arguments.get("parentCollection"))
+            if self.apply
+            else "COLLNEW1"
+        )
         return {"success": True, "key": key, "name": arguments["name"]}
 
     def _update_collection(self, arguments: dict):
