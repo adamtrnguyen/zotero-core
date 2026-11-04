@@ -156,7 +156,12 @@ class FileJournal:
         inverse: str | None = None,
         journal_dir: str | None = None,
     ) -> str:
-        return write_manifest(op, before=before, inverse=inverse, journal_dir=journal_dir)
+        # Fall back to THIS journal's directory, not the module default: undo reads
+        # `journal_dir or journal.default_dir` (replay.list_entries), so writing anywhere
+        # else lost the history of any journal built with its own directory.
+        return write_manifest(
+            op, before=before, inverse=inverse, journal_dir=journal_dir or self.default_dir
+        )
 
     def copy_database(self, dest_dir: str | None, db_path) -> dict:
-        return copy_database(dest_dir, db_path)
+        return copy_database(dest_dir or self.default_dir, db_path)

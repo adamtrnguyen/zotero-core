@@ -227,3 +227,21 @@ def test_undo_refuses_an_unknown_manifest_name(journal, session):
     with pytest.raises(WriteBlocked) as excinfo:
         undo_mod.undo("nope.json", journal_dir=str(journal), session=session)
     assert "no manifest matching" in str(excinfo.value)
+
+
+def test_a_journal_with_its_own_directory_writes_where_undo_reads(tmp_path, monkeypatch):
+    """FileJournal(dir) wrote manifests to the MODULE default while list_entries read
+    `journal.default_dir`, so a journal built with its own directory lost its undo
+    history. Existing fixtures hid it by pointing both at the same path."""
+    from zotero_core.infrastructure import journal as journal_mod
+    from zotero_core.infrastructure.journal import FileJournal
+
+    monkeypatch.setattr(journal_mod, "DEFAULT_JOURNAL_DIR", str(tmp_path / "module-default"))
+    own = tmp_path / "own"
+    j = FileJournal(str(own))
+
+    written = j.write_manifest("set_tags", before={"tags": ["a"]}, inverse=None)
+
+    assert pathlib.Path(written).parent == own
+    assert [e.path for e in undo_mod.list_entries(journal=j)] == [written]
+    assert not (tmp_path / "module-default").exists()
