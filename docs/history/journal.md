@@ -71,3 +71,12 @@ The same fix found the ordering it depends on was a coin toss: `write_manifest` 
 times a second -- as if it were microseconds within the second, so "newest" among writes made
 close together (a write and its undo) was arbitrary. The stamp is now microseconds within the
 second from one clock reading, and a taken filename is bumped rather than overwritten.
+
+## 2026-11-04: write-then-undo round trips, and the one that does not close
+
+`tests/test_round_trip.py` runs every verb that journals a replayable inverse from a non-empty
+library, undoes it with a no-arg `undo()`, and compares the whole fixture before and after.
+Against the source before the update_collection fix it failed on a re-parent. One case is a
+strict xfail: moving an item that is already filed in the target. The inverse is one move back,
+which also unfiles it from the target where it already was; restoring that state needs
+"add back to the source only", which one replayable call cannot express.
