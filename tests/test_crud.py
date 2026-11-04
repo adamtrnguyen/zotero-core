@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import pathlib
 from dataclasses import replace
 from pathlib import Path
 
@@ -426,6 +427,20 @@ def test_a_relative_path_is_refused(zotero, linker, session):
         link_attachment("PARENT12", "relative/path.pdf", **_kw(session))
     assert e.value.code == Reason.FILE_NOT_FOUND
     assert linker.posts == []
+
+
+def test_an_import_from_a_relative_path_is_refused(
+    zotero, cookjohn, tmp_path, monkeypatch, session
+):
+    """The plugin reads `filePath` in ZOTERO's process, whose working directory is not the
+    caller's: a relative path that exists here names another file, or none, there."""
+    zotero.add("PARENT12", "The Parent", item_type="book")
+    monkeypatch.chdir(tmp_path)
+    pathlib.Path("paper.pdf").write_bytes(b"%PDF-1.4\n")
+    with pytest.raises(WriteBlocked) as e:
+        import_attachment("PARENT12", "paper.pdf", **_kw(session))
+    assert e.value.code == Reason.FILE_NOT_FOUND
+    assert not [tool for tool, _ in cookjohn.calls if tool == "write_item"]
 
 
 def test_a_missing_file_is_refused_before_the_link_is_made(zotero, linker, tmp_path, session):

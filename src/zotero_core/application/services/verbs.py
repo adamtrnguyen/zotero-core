@@ -392,8 +392,18 @@ def import_attachment(
     `~/Zotero/storage` and those bytes then sync to the NAS over WebDAV. For a
     library already on disk elsewhere that is the wrong default, which is why
     ZoteroSuite built the linker at all.
+
+    The path must be ABSOLUTE, as for `link_attachment`: cookjohn reads it in Zotero's
+    process, whose working directory is not the caller's.
     """
     check_keys([parent_item_key])
+    if not os.path.isabs(path):
+        raise WriteBlocked(
+            Reason.FILE_NOT_FOUND,
+            f"{path!r} is not absolute — Zotero reads it from its own working directory, "
+            "which is not this process's",
+            {"path": path},
+        )
     if not os.path.exists(path):
         raise WriteBlocked(Reason.FILE_NOT_FOUND, f"no file at {path}", {"path": path})
     info = session.require("cookjohn")
