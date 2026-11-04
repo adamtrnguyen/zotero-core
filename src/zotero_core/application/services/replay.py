@@ -94,6 +94,9 @@ class Entry:
     before: dict
     replayable: bool
     blocked_reason: str | None
+    #: Written by an undo's replay. Its inverse is the ORIGINAL write, so a no-arg undo
+    #: skips it; naming it explicitly is a deliberate redo.
+    written_by_undo: bool = False
 
 
 def _replayable_verbs() -> dict[str, Callable[..., dict]]:
@@ -151,6 +154,32 @@ def _classify(inverse: str | None) -> tuple[bool, str | None]:
     return True, None
 
 
+#: The op an undo journals after a replay, linking the manifest it undid to the one the
+#: replay wrote. A record, never replayable.
+UNDO_RECORD_OP = "undo"
+
+
+def _undo_links(directory: str) -> tuple[dict[str, str], set[str]]:
+    """({undone manifest: undo record}, {manifests written by a replay}) from every record.
+
+    Read across the whole directory, not the listing window: the record that marks an
+    entry undone may be newer than the window a caller asked for.
+    """
+    undone: dict[str, str] = {}
+    replayed: set[str] = set()
+    for path in glob.glob(os.path.join(directory, f"{UNDO_RECORD_OP}-*.json")):
+        try:
+            with open(path) as handle:
+                before = json.load(handle).get("before") or {}
+        except (OSError, json.JSONDecodeError):
+            continue
+        if before.get("undid"):
+            undone[before["undid"]] = path
+        if before.get("replay_manifest"):
+            replayed.add(before["replay_manifest"])
+    return undone, replayed
+
+
 def list_entries(
     journal_dir: str | None = None, *, limit: int = 25, journal: Journal
 ) -> list[Entry]:
@@ -160,6 +189,7 @@ def list_entries(
     `_sort_key` for why those are different and what it cost.
     """
     directory = journal_dir or journal.default_dir
+    undone, replayed = _undo_links(directory)
     entries: list[Entry] = []
     paths = sorted(glob.glob(os.path.join(directory, "*.json")), key=_sort_key, reverse=True)
     for path in paths[:limit]:
@@ -174,6 +204,8 @@ def list_entries(
             continue
         inverse = payload.get("inverse")
         replayable, blocked = _classify(inverse)
+        if replayable and path in undone:
+            replayable, blocked = False, f"already undone (see {undone[path]})"
         entries.append(
             Entry(
                 path=path,
@@ -183,6 +215,7 @@ def list_entries(
                 before=payload.get("before", {}) or {},
                 replayable=replayable,
                 blocked_reason=blocked,
+                written_by_undo=path in replayed,
             )
         )
     return entries
@@ -197,9 +230,14 @@ def undo(
 ) -> dict:
     """Replay one manifest's inverse. Defaults to the most recent replayable entry.
 
-    `dry_run` resolves and validates everything and returns the call it WOULD make
-    without making it -- which is the mode to use first, because an undo is itself a
+    `dry_run` parses and validates the inverse and returns the call it WOULD make without
+    making it; the replayed verb's own gates run only for real. An undo is itself a
     write and lands in the journal like any other.
+
+    Undo walks BACK through the journal. After a replay it journals an `undo` record
+    linking the manifest it undid to the one the replay wrote: the undone manifest is no
+    longer replayable, and the replay's manifest (whose inverse is the original write) is
+    skipped by a no-arg undo. Name a replay's manifest explicitly to redo.
     """
     entries = list_entries(journal_dir, limit=200, journal=session.journal)
     if manifest_path:
@@ -213,7 +251,7 @@ def undo(
             )
         entry = matches[0]
     else:
-        replayable = [e for e in entries if e.replayable]
+        replayable = [e for e in entries if e.replayable and not e.written_by_undo]
         if not replayable:
             raise WriteBlocked(
                 Reason.NOTHING_TO_DO,
@@ -251,9 +289,20 @@ def undo(
     # The replayed verb runs on the caller's session, exactly the collaborators the undo was
     # given: a replay that built its own session could be replaying against another database.
     result = verb(*args, **kwargs, session=session)
+    record = session.journal.write_manifest(
+        UNDO_RECORD_OP,
+        before={
+            "undid": entry.path,
+            "replay_manifest": result.get("undo_manifest") if isinstance(result, dict) else None,
+            "call": entry.inverse,
+        },
+        inverse=None,
+        journal_dir=journal_dir,
+    )
     return ok(
         "undo",
         transport="none",
         undone=plan,
         result=result,
+        undo_record=record,
     )

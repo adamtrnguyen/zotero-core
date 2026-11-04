@@ -56,3 +56,18 @@ callback. When Zotero's lock refuses a reader it falls back to a byte copy of th
 its `-wal` / `-journal`, named `<backup>-wal` so opening the backup replays it; the result's
 `method` says which. The test fixture database is WAL-mode too, so the suite exercises the
 same file layout as the live library.
+
+## 2026-11-04: a second undo re-applied the original
+
+`undo()` replays an inverse through the ordinary verb, which journals its own manifest -- whose
+inverse is the original write. That manifest was then the newest replayable entry, so a second
+no-arg `undo()` redid what the first had undone (trash -> undo restores -> undo re-trashes).
+Now an undo journals an `undo` record linking the manifest it undid to the one its replay
+wrote: the undone manifest is no longer replayable, and the replay's manifest is skipped by a
+no-arg undo (naming it is a deliberate redo). Undo now walks back through the journal.
+
+The same fix found the ordering it depends on was a coin toss: `write_manifest` stamped
+`time.time_ns() % 1_000_000` -- nanoseconds within the MILLISECOND, which wraps a thousand
+times a second -- as if it were microseconds within the second, so "newest" among writes made
+close together (a write and its undo) was arbitrary. The stamp is now microseconds within the
+second from one clock reading, and a taken filename is bumped rather than overwritten.

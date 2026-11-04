@@ -69,11 +69,17 @@ def write_manifest(
     """
     journal_dir = journal_dir or DEFAULT_JOURNAL_DIR
     os.makedirs(journal_dir, exist_ok=True)
-    # Microseconds, not seconds: two writes inside the same second are ordinary in a
-    # loop, and a second-resolution stamp would have the later one overwrite the
-    # record of the earlier -- losing exactly the manifest most likely to be needed.
-    stamp = time.strftime("%Y%m%d-%H%M%S") + f"-{time.time_ns() % 1_000_000:06d}"
-    path = os.path.join(journal_dir, f"{op}-{stamp}.json")
+    # Microseconds within the second, from ONE clock reading: two writes inside the same
+    # second are ordinary (a write and its undo), and undo orders manifests by this stamp.
+    # A taken name is bumped rather than overwritten.
+    now_ns = time.time_ns()
+    seconds, micros = divmod(now_ns // 1000, 1_000_000)
+    while True:
+        stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(seconds)) + f"-{micros:06d}"
+        path = os.path.join(journal_dir, f"{op}-{stamp}.json")
+        if not os.path.exists(path):
+            break
+        seconds, micros = divmod(seconds * 1_000_000 + micros + 1, 1_000_000)
     with open(path, "w") as handle:
         json.dump(
             {

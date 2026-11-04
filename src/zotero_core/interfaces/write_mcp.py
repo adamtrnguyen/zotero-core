@@ -167,6 +167,7 @@ def list_undo(limit: int = 25, *, session: WriteSession) -> dict:
                 "inverse": e.inverse,
                 "replayable": e.replayable,
                 "blocked_reason": e.blocked_reason,
+                "written_by_undo": e.written_by_undo,
             }
             for e in entries
         ],

@@ -283,3 +283,65 @@ def _collection_names(zotero) -> dict[str, str]:
         return dict(con.execute("SELECT key, collectionName FROM collections").fetchall())
     finally:
         con.close()
+
+
+# --------------------------------------------------------------------------
+# a second undo must not redo the first
+# --------------------------------------------------------------------------
+
+
+def test_a_second_undo_does_not_reapply_the_original(zotero, session):
+    """Replaying an inverse is itself a journalled write, so its manifest is the newest
+    replayable entry -- and its inverse is the ORIGINAL write. A second no-arg undo
+    picked it and re-trashed what the first undo had just restored."""
+    from zotero_core.application.services.verbs import trash_items
+
+    zotero.add("ABCD2345", "A Paper")
+    trash_items(["ABCD2345"], session=session)
+    undo_mod.undo(session=session)
+    assert not zotero.is_trashed("ABCD2345")
+
+    with pytest.raises(WriteBlocked):
+        undo_mod.undo(session=session)
+
+    assert not zotero.is_trashed("ABCD2345")
+
+
+def test_a_second_undo_steps_back_to_the_write_before(zotero, session):
+    """Undo walks back through the journal: after undoing the newest write, the next
+    no-arg undo reverses the one before it."""
+    from zotero_core.application.services.verbs import trash_items
+
+    zotero.add("ABCD2345", "First")
+    zotero.add("EFGH6789", "Second")
+    trash_items(["ABCD2345"], session=session)
+    trash_items(["EFGH6789"], session=session)
+
+    undo_mod.undo(session=session)
+    undo_mod.undo(session=session)
+
+    assert not zotero.is_trashed("ABCD2345")
+    assert not zotero.is_trashed("EFGH6789")
+
+
+def test_an_undone_manifest_says_so(zotero, session):
+    from zotero_core.application.services.verbs import trash_items
+
+    zotero.add("ABCD2345", "A Paper")
+    first = trash_items(["ABCD2345"], session=session)["undo_manifest"]
+    undo_mod.undo(session=session)
+
+    entry = next(e for e in undo_mod.list_entries(journal=session.journal) if e.path == first)
+    assert not entry.replayable
+    assert "already undone" in (entry.blocked_reason or "")
+
+
+def test_manifests_list_newest_first_within_one_second(session):
+    """The stamp's sub-second field must be microseconds within the second. Nanoseconds
+    within the millisecond wrap a thousand times a second, so "newest" was a coin toss
+    for writes made close together -- the normal case for a write and its undo."""
+    written = [
+        session.journal.write_manifest("set_tags", before={"n": n}, inverse=None) for n in range(30)
+    ]
+    listed = [e.path for e in undo_mod.list_entries(journal=session.journal, limit=100)]
+    assert listed == list(reversed(written))
