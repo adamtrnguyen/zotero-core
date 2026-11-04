@@ -177,7 +177,9 @@ This is deliberately not a database copy, which is what calibre-core does.
 Zotero already keeps rotating daily copies of `zotero.sqlite` beside it, so a per-call
 copy duplicates what exists — and
 restoring one requires closing Zotero and reverts every unrelated change since.
-`copy_db=True` still takes the snapshot (database *and* rollback journal).
+`copy_db=True` still takes the snapshot: SQLite's backup API from a read-only connection,
+so commits still in the WAL are included, or a byte copy of the database with its `-wal`
+when Zotero's lock refuses a reader (`method` in the result says which).
 
 ## Not implemented, deliberately
 

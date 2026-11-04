@@ -5,10 +5,11 @@ read reports the mode that served it.
 
 WHY THE MODE IS RETURNED
 ------------------------
-Zotero uses a ROLLBACK JOURNAL, not WAL. With the app running, a plain `mode=ro` read
-intermittently loses to the writer and fails with "database is locked (5)" -- observed
-live, not theorised. `immutable=1` always answers, but it answers from a POINT-IN-TIME
-snapshot: it tells sqlite the file cannot change, so the journal is ignored.
+`zotero.sqlite` is WAL-mode (header bytes 18-19 are 2; `zotero.sqlite-wal` sits beside
+it). With the app running, a plain `mode=ro` read can lose to Zotero's lock and fail with
+"database is locked". `immutable=1` always answers, but from a SNAPSHOT: it tells sqlite
+the file cannot change, so the WAL is ignored and commits not yet checkpointed into the
+main file are missing.
 
 Those two are not interchangeable, and the difference is invisible in the rows. A caller
 checking whether a write landed needs to know it was told by a snapshot, so every read in
@@ -17,7 +18,9 @@ this layer carries `read_mode` out to its caller rather than quietly picking one
 
 from __future__ import annotations
 
+import shutil
 import sqlite3
+import time
 from pathlib import Path
 
 from zotero_core.domain.read_mode import ReadMode
@@ -53,6 +56,9 @@ DEFAULT_BUSY_TIMEOUT_MS = 5000
 # reported honestly in `read_mode`, never hidden -- for a two-order-of-magnitude speedup.
 PROBE_TIMEOUT_MS = 150
 
+#: How long `backup_database` waits on a busy source before falling back to a file copy.
+BACKUP_TIMEOUT_S = 30.0
+
 
 def open_readonly(
     db_path: str | Path,
@@ -81,3 +87,51 @@ def open_readonly(
             return conn, ReadMode.SNAPSHOT
         except sqlite3.Error as exc:
             raise ZoteroReadError(f"Could not open Zotero database read-only: {exc}") from exc
+
+
+def backup_database(db_path: Path, dest: Path) -> tuple[str, dict[str, str]]:
+    """Copy the database to `dest` as one coherent point in time, never opening it for write.
+
+    `sqlite-backup` when a read-only connection can read: SQLite's backup API copies the
+    committed state, WAL frames included, into one self-contained file. When Zotero's lock
+    refuses even that, `file-copy`: the main file plus whichever of `-wal` / `-journal`
+    exists, each copied to `dest` + the same suffix so opening `dest` replays it. A byte
+    copy is coherent only if no write was in flight, which is why the method is reported.
+
+    Returns `(method, {suffix: copied path})`.
+    """
+    path = Path(db_path)
+    if not path.exists():
+        raise ZoteroReadError(f"Zotero database not found: {path}")
+    try:
+        source = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=5.0)
+        try:
+            source.execute(f"PRAGMA busy_timeout={int(PROBE_TIMEOUT_MS)}")
+            # Touch a table first: a lock surfaces here as an error, whereas `backup`
+            # retries a busy source forever.
+            source.execute("SELECT 1 FROM items LIMIT 1").fetchone()
+            deadline = time.monotonic() + BACKUP_TIMEOUT_S
+
+            def _give_up_when_late(_status, _remaining, _total) -> None:
+                if time.monotonic() > deadline:
+                    raise sqlite3.OperationalError("backup outlasted its deadline")
+
+            target = sqlite3.connect(dest)
+            try:
+                source.backup(target, progress=_give_up_when_late)
+            finally:
+                target.close()
+        finally:
+            source.close()
+        return "sqlite-backup", {}
+    except sqlite3.Error:
+        dest.unlink(missing_ok=True)
+    shutil.copy2(path, dest)
+    companions: dict[str, str] = {}
+    for suffix in ("-wal", "-journal"):
+        companion = path.with_name(path.name + suffix)
+        if companion.exists():
+            copied = dest.with_name(dest.name + suffix)
+            shutil.copy2(companion, copied)
+            companions[suffix] = str(copied)
+    return "file-copy", companions

@@ -5,8 +5,8 @@ Sources, in the order they are trusted:
   http      bridge (live window state), bbt (citekeys)
 
 Every sqlite read opens the database read-only and REPORTS WHICH MODE SERVED IT
-(`items.ZoteroItemStore._connect`): with Zotero running, `mode=ro` intermittently
-loses to the rollback journal and `immutable=1` answers from a point-in-time
-snapshot instead. A caller that cannot tell those apart cannot know whether it just
-read the present or the recent past.
+(`sqlite.connect.open_readonly`): with Zotero running, `mode=ro` can fail on Zotero's
+lock and `immutable=1` answers from the main file alone, without the WAL, instead. A
+caller that cannot tell those apart cannot know whether it just read the present or the
+recent past.
 """

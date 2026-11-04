@@ -140,7 +140,8 @@ _COPY_DB = {
     "type": "boolean",
     "default": False,
     "description": (
-        "Also copy zotero.sqlite and its rollback journal aside (~330 MB per call). "
+        "Also copy zotero.sqlite aside as one coherent snapshot, WAL included (the "
+        "database's full size per call; `method` in the result says how it was taken). "
         "Off by default: a manifest with the inverse call is written regardless, and "
         "restoring a database copy requires closing Zotero and discards every "
         "unrelated change since."

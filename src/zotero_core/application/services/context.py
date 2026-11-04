@@ -168,8 +168,8 @@ class ZoteroContext:
         are one-to-many, creators are ordered), and a caller almost always wants all
         four -- an agent deciding what to do next needs the type and the creators.
 
-        `read_mode` travels with the answer. With Zotero running, `mode=ro` loses to the
-        rollback journal and `immutable=1` serves a point-in-time snapshot instead; a
+        `read_mode` travels with the answer. With Zotero running, `mode=ro` can lose to
+        Zotero's lock and `immutable=1` serves a snapshot without the WAL instead; a
         caller that cannot tell those apart cannot know whether it read the present.
         """
         states = self.items.item_states([item_key])

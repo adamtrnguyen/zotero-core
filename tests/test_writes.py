@@ -16,6 +16,7 @@ from __future__ import annotations
 import email.message
 import io
 import json
+import sqlite3
 import urllib.error
 from dataclasses import replace
 from pathlib import Path
@@ -454,29 +455,79 @@ def test_a_manifest_written_with_no_journal_dir_honours_the_redirect(zotero, ses
     assert "/tmp/zotero-write-journal" not in out["undo_manifest"]
 
 
-def test_the_329mb_database_copy_is_off_by_default(zotero, tmp_path, session):
-    """Zotero already keeps five rotating daily copies of the 329 MB database beside
-    it. Spending another ~330 MB per trash — whose undo is `restore_items` — is not
-    a default anyone chose; it is available when asked for."""
+def test_the_database_copy_is_off_by_default(zotero, tmp_path, session):
+    """Zotero already keeps rotating daily copies of the database beside it. Spending
+    another full copy per trash — whose undo is `restore_items` — is not a default
+    anyone chose; it is available when asked for."""
     zotero.add("ABCD2345", "A Paper")
     out = trash_items(["ABCD2345"], journal_dir=str(tmp_path / "j"), session=session)
     assert "database_backup" not in out
     assert list((tmp_path / "j").glob("zotero.sqlite.backup-*")) == []
 
 
-def test_the_database_copy_takes_the_journal_with_it(zotero, tmp_path, session):
-    """A copy of the main file alone, taken while Zotero holds a transaction open, can
-    hold pages the journal was about to roll back. DESIGN.md's pattern is db+journal."""
-    zotero.add("ABCD2345", "A Paper")
-    zotero.path.with_name(zotero.path.name + "-journal").write_bytes(b"fake journal")
-    out = trash_items(
-        ["ABCD2345"],
-        copy_db=True,
-        journal_dir=str(tmp_path / "j"),
-        session=session,
+def _hold_commit_in_the_wal(zotero, name: str) -> sqlite3.Connection:
+    """Commit a collection named `name` that lives ONLY in `zotero.sqlite-wal`.
+
+    The returned connection stays open with autocheckpoint off, the state a running Zotero
+    keeps the live database in: the commit is real, and the main file does not have it.
+    """
+    holder = sqlite3.connect(zotero.path)
+    holder.execute("PRAGMA wal_autocheckpoint=0")
+    holder.execute(
+        "INSERT INTO collections (collectionID, collectionName, libraryID, key) "
+        "VALUES (999, ?, 1, 'WALONLY1')",
+        (name,),
     )
-    assert Path(out["database_backup"]["database"]).exists()
-    assert Path(out["database_backup"]["journal"]).exists()
+    holder.commit()
+    assert zotero.path.with_name(zotero.path.name + "-wal").stat().st_size > 0
+    return holder
+
+
+def _collection_names(db: Path) -> set[str]:
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        return {name for (name,) in con.execute("SELECT collectionName FROM collections")}
+    finally:
+        con.close()
+
+
+def test_the_database_copy_includes_commits_still_in_the_wal(zotero, tmp_path, session):
+    """The live database is WAL-mode. A copy of the main file alone misses every commit
+    not yet checkpointed, so the backup must carry what a reader of the live file sees."""
+    zotero.add("ABCD2345", "A Paper")
+    holder = _hold_commit_in_the_wal(zotero, "committed but not checkpointed")
+    try:
+        out = trash_items(
+            ["ABCD2345"],
+            copy_db=True,
+            journal_dir=str(tmp_path / "j"),
+            session=session,
+        )
+    finally:
+        holder.close()
+    backup = Path(out["database_backup"]["database"])
+    assert "committed but not checkpointed" in _collection_names(backup)
+
+
+def test_a_locked_database_is_copied_with_its_wal(zotero, tmp_path, session):
+    """When Zotero holds the lock no read-only connection can take a backup, so the files
+    are copied instead -- the WAL beside the database, named so the copy opens with it."""
+    zotero.add("ABCD2345", "A Paper")
+    holder = sqlite3.connect(zotero.path)
+    holder.execute("PRAGMA locking_mode=EXCLUSIVE")
+    holder.execute("PRAGMA wal_autocheckpoint=0")
+    holder.execute(
+        "INSERT INTO collections (collectionID, collectionName, libraryID, key) "
+        "VALUES (999, 'behind the lock', 1, 'WALONLY1')"
+    )
+    holder.commit()
+    try:
+        out = session.journal.copy_database(str(tmp_path / "j"), zotero.path)
+    finally:
+        holder.close()
+    assert out["method"] == "file-copy"
+    assert Path(out["wal"]) == Path(out["database"] + "-wal")
+    assert "behind the lock" in _collection_names(Path(out["database"]))
 
 
 def test_the_database_copy_works_without_being_told_where_to_put_it(zotero, session):
@@ -493,7 +544,7 @@ def test_the_database_copy_works_without_being_told_where_to_put_it(zotero, sess
     backup = Path(out["database_backup"]["database"])
     assert backup.exists()
     # And it landed in the redirected journal dir, not the shared one — resolving the
-    # default inside `copy_database` is what keeps a 329 MB file out of /tmp during tests.
+    # default inside `copy_database` is what keeps a database copy out of /tmp during tests.
     assert "/tmp/zotero-write-journal" not in str(backup)
 
 

@@ -5,12 +5,11 @@ WHY THIS IS A MANIFEST AND NOT A DATABASE COPY
 calibre-core copies metadata.db before every write because a DB rollback is the only
 undo that exists there. Neither half of that holds for Zotero:
 
-  * `zotero.sqlite` is hundreds of MB (`ls -l ~/Zotero/zotero.sqlite`), and Zotero
-    already keeps rotating daily copies beside it (`zotero.sqlite.bak`, `.1.bak`, ...).
+  * Zotero already keeps rotating daily copies of `zotero.sqlite` beside it
+    (`zotero.sqlite.bak`, `.1.bak`, ...; `ls -l ~/Zotero/zotero.sqlite*` for sizes).
     Copying it per call duplicates what already exists.
   * restoring such a copy is not an undo anyone can safely take: it requires closing
-    Zotero and reverts every unrelated change since the copy was made. Taken while
-    Zotero runs it also needs its `-journal` alongside to be coherent at all.
+    Zotero and reverts every unrelated change since the copy was made.
 
 So "back up before mutating" is honoured per-operation, by recording the state the
 write is about to overwrite plus the call that reverses it. `copy_database` is still
@@ -36,8 +35,10 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import time
+from pathlib import Path
+
+from zotero_core.infrastructure.sqlite.connect import backup_database
 
 # Ephemeral on purpose. The manifest exists to undo a mistake noticed in the same
 # sitting; the DURABLE undo for a trash is Zotero's own trash, which lives in the
@@ -88,12 +89,13 @@ def write_manifest(
 
 
 def copy_database(dest_dir: str | None, db_path) -> dict:
-    """Copy zotero.sqlite AND its rollback journal aside. ~330 MB per call.
+    """Copy zotero.sqlite aside as one coherent point in time. Its full size per call.
 
-    Both files or neither: DESIGN.md's sanctioned snapshot pattern is
-    "copy-then-read (db + journal)". A copy of the main file alone, taken while
-    Zotero holds a transaction open, can contain pages the journal was going to roll
-    back -- so on its own it is not a coherent point in time.
+    The database is WAL-mode, so a committed write can sit in `zotero.sqlite-wal` until
+    Zotero checkpoints it; the main file alone is not the database. The copy is taken by
+    `sqlite.connect.backup_database`: SQLite's backup API from a read-only connection
+    when one can read, else a byte copy of the main file with its `-wal` / `-journal`
+    named so the copy opens with them. `method` says which.
 
     Off by default everywhere. Restoring it requires closing Zotero and discards
     every unrelated change made since it was taken.
@@ -105,17 +107,15 @@ def copy_database(dest_dir: str | None, db_path) -> dict:
     dest_dir = dest_dir or DEFAULT_JOURNAL_DIR
     os.makedirs(dest_dir, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    out: dict = {"database": None, "journal": None, "bytes": 0}
     dest = os.path.join(dest_dir, f"zotero.sqlite.backup-{stamp}")
-    shutil.copy2(str(db_path), dest)
-    out["database"] = dest
-    out["bytes"] += os.path.getsize(dest)
-    journal_file = db_path.with_name(db_path.name + "-journal")
-    if journal_file.exists():
-        jdest = os.path.join(dest_dir, f"zotero.sqlite-journal.backup-{stamp}")
-        shutil.copy2(str(journal_file), jdest)
-        out["journal"] = jdest
-        out["bytes"] += os.path.getsize(jdest)
+    method, companions = backup_database(Path(db_path), Path(dest))
+    out: dict = {
+        "database": dest,
+        "method": method,
+        "wal": companions.get("-wal"),
+        "journal": companions.get("-journal"),
+    }
+    out["bytes"] = sum(os.path.getsize(p) for p in (dest, *companions.values()))
     return out
 
 

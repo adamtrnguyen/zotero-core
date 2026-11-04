@@ -12,15 +12,15 @@ core stays READ-ONLY. Nothing here opens the database read-write.
 WHICH READ MODE SERVED THE ANSWER
 ---------------------------------
 It is reported rather than hidden, because the two modes do not answer the same
-question. `mode=ro` is the honest read: it respects locking and plays back a hot
-rollback journal. But Zotero holds the database locked while it runs, and the
+question. `mode=ro` is the honest read: it respects locking and reads committed
+frames from the WAL. But Zotero holds the database locked while it runs, and the
 write path REQUIRES Zotero to be running (that precondition inverts relative to
 Calibre, which requires its GUI closed) -- so in normal operation `mode=ro` raises
 and the `immutable=1` fallback is what actually serves the row (the measurement:
 docs/history/sqlite-reads.md).
 
-`immutable=1` tells SQLite the file cannot change, so it skips locking and skips
-hot-journal playback: a point-in-time view of the main file's pages. That is fine
+`immutable=1` tells SQLite the file cannot change, so it skips locking and ignores
+the WAL: a view of the main file's pages as of the last checkpoint. That is fine
 for a precondition -- a stale read blocks a write that would have been fine, which
 is the safe direction -- but it is NOT authority for "the write did not land".
 `ItemStates.read_mode` travels with the answer so the write path can tell a

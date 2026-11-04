@@ -39,3 +39,20 @@ reboot. The DURABLE undo for a trash is Zotero's own trash. Consequences a calle
 manifest written before a reboot is gone, so `zotero_list_undo` / `zotero_undo` cannot reach
 it, and a `delete_collection` member list exists only in that manifest. This is documented in
 the tool descriptions; moving the journal is a separate decision.
+
+## 2026-11-04: `copy_database` copied the wrong companion file
+
+The live database is WAL-mode (header bytes 18-19 `02 02`; `zotero.sqlite-wal` and `-shm`
+beside it), but `copy_database` copied the main file plus `zotero.sqlite-journal`, which a WAL
+database never has. A committed write still in the WAL was therefore missing from the backup,
+and the docstrings and the `copy_db` tool description promised a rollback journal "~330 MB per
+call". The test `test_the_database_copy_takes_the_journal_with_it` asserted the bug: it wrote a
+fake `-journal` and checked it was copied.
+
+Now `sqlite.connect.backup_database` takes the copy with SQLite's backup API from a `mode=ro`
+connection (WAL frames included, the source never opened for write), probing a table first
+because `Connection.backup` retries a busy source forever, and with a deadline in the progress
+callback. When Zotero's lock refuses a reader it falls back to a byte copy of the main file and
+its `-wal` / `-journal`, named `<backup>-wal` so opening the backup replays it; the result's
+`method` says which. The test fixture database is WAL-mode too, so the suite exercises the
+same file layout as the live library.

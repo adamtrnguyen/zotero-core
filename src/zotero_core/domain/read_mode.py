@@ -16,9 +16,9 @@ magic string: a typo there does not raise, it silently flips a verification verd
 
 WHAT IT MEANS
 -------------
-Zotero uses a ROLLBACK JOURNAL, not WAL. With the app running, a plain `mode=ro` read
-intermittently loses to the writer; `immutable=1` always answers, but from a POINT-IN-TIME
-SNAPSHOT — it tells sqlite the file cannot change, so the journal is ignored.
+`zotero.sqlite` is WAL-mode. With the app running, a plain `mode=ro` read can lose to
+Zotero's lock; `immutable=1` always answers, but from a SNAPSHOT — it tells sqlite the
+file cannot change, so the WAL is ignored and commits not yet checkpointed are missing.
 
     LIVE      the answer reflects the database as of now
     SNAPSHOT  the answer may predate a commit that has already happened

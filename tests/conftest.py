@@ -71,6 +71,9 @@ class ZoteroBuilder:
         self.path = root / "zotero.sqlite"
         root.mkdir(parents=True, exist_ok=True)
         con = sqlite3.connect(self.path)
+        # WAL, like the live database: a committed write can sit in `zotero.sqlite-wal`
+        # until a checkpoint, and anything that copies or reads the file must cope.
+        con.execute("PRAGMA journal_mode=WAL")
         con.executescript(SCHEMA.read_text())
         con.commit()
         con.close()
