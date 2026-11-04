@@ -54,9 +54,8 @@ target-version = "py310"
 line-length = 100
 
 [tool.ruff.lint]
-# Same rule set as calibre-core and the rest of Adam's Python: pycodestyle + pyflakes,
-# import order, bugbear, pyupgrade, complexity ceiling.
-select = ["E", "F", "I", "B", "UP", "C901", "TID"]
+# The fleet base rules (E F W I B UP C4 C901 TID252), plus the rest of TID.
+select = ["E", "F", "W", "I", "B", "UP", "C4", "C901", "TID", "TID252"]
 
 # Absolute imports only, matching `omni-rag` (which sets the same rule). This is not
 # style: the Phase-2 move shifted seven modules one directory deeper, and every

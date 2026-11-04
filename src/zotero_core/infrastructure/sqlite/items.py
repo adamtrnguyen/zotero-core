@@ -327,9 +327,8 @@ class ZoteroItemStore:
         """Every populated metadata field on one item, as {fieldName: value}."""
         conn, _ = self._connect()
         try:
-            return {
-                name: value
-                for name, value in conn.execute(
+            return dict(
+                conn.execute(
                     """
                     SELECT f.fieldName, v.value
                       FROM items i
@@ -340,7 +339,7 @@ class ZoteroItemStore:
                     """,
                     (self.library_id, key),
                 )
-            }
+            )
         finally:
             conn.close()
 
@@ -474,7 +473,7 @@ class ZoteroItemStore:
             return {}
         finally:
             conn.close()
-        return {base: actual for base, actual in rows}
+        return dict(rows)
 
     def item_creators(self, key: str) -> tuple[dict[str, str], ...]:
         """Creators on one item, IN ORDER.

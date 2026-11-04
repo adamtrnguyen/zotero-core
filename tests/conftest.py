@@ -301,15 +301,14 @@ class ZoteroBuilder:
     def fields_of(self, key: str) -> dict[str, str]:
         con = sqlite3.connect(f"file:{self.path}?mode=ro", uri=True)
         try:
-            return {
-                name: value
-                for name, value in con.execute(
+            return dict(
+                con.execute(
                     "SELECT f.fieldName, v.value FROM itemData d "
                     "JOIN fields f ON f.fieldID = d.fieldID "
                     "JOIN itemDataValues v ON v.valueID = d.valueID WHERE d.itemID = ?",
                     (self.ids[key],),
                 )
-            }
+            )
         finally:
             con.close()
 

@@ -244,7 +244,7 @@ class ZoteroCollectionStore:
         finally:
             conn.close()
 
-        out: dict[str, tuple[dict[str, str], ...]] = {key: () for key in keys}
+        out: dict[str, tuple[dict[str, str], ...]] = dict.fromkeys(keys, ())
         for item_key, collection_key, name in rows:
             out[item_key] = (*out[item_key], {"key": collection_key, "name": name})
         return out
