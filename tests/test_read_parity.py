@@ -75,9 +75,7 @@ def _read_tool_names() -> set[str]:
 def test_every_cookjohn_read_has_an_equivalent_here():
     """THE GATE. If this fails, do not unregister zotero-plugin."""
     available = _read_tool_names()
-    missing = {
-        cookjohn: mine for cookjohn, mine in COOKJOHN_READS.items() if mine not in available
-    }
+    missing = {cookjohn: mine for cookjohn, mine in COOKJOHN_READS.items() if mine not in available}
     assert not missing, f"no equivalent for cookjohn reads: {missing}"
 
 
@@ -135,9 +133,7 @@ def test_search_parity_is_an_improvement_not_a_regression(zotero):
 
     ctx = build_context(zotero_db_path=zotero.path)
     zotero.add("AAAA1111", title="Bayesian Learning via Stochastic Gradient Langevin Dynamics")
-    result = read_mcp.call_read(
-        "search_zotero_items", {"query": "Langevan Dynmaics"}, ctx=ctx
-    )
+    result = read_mcp.call_read("search_zotero_items", {"query": "Langevan Dynmaics"}, ctx=ctx)
     assert result["count"] == 1
 
 
@@ -157,9 +153,7 @@ def test_group_libraries_are_reachable_rather_than_scoped_away(zotero):
             "INSERT OR REPLACE INTO libraries (libraryID, type, editable, filesEditable)"
             " VALUES (9, 'group', 1, 1)"
         )
-        con.execute(
-            "INSERT INTO groups (groupID, libraryID, name) VALUES (99, 9, 'D7 resources')"
-        )
+        con.execute("INSERT INTO groups (groupID, libraryID, name) VALUES (99, 9, 'D7 resources')")
         con.execute(
             "INSERT INTO collections (collectionID, collectionName, libraryID, key)"
             " VALUES (9500, 'Group Work', 9, 'GRPCOLL1')"

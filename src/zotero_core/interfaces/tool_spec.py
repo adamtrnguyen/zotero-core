@@ -112,9 +112,7 @@ def dispatch(
     # purpose: the verb's own gate answers it with a coded refusal (`unknown_item_type`,
     # `no_item_keys`), which is a better answer than a ValueError from here.
     call_args = {
-        key: value
-        for key, value in arguments.items()
-        if value is not None or key in spec.required
+        key: value for key, value in arguments.items() if value is not None or key in spec.required
     }
     # `extra` is what the ADAPTER injects, never what the client sent: the write side
     # passes the `WriteSession` built by `interfaces/factory.py`. It is merged after the

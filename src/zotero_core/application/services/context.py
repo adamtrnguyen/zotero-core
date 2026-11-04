@@ -85,12 +85,12 @@ class ZoteroContext:
             "libraries",
             [
                 {
-                    'library_id': lib.library_id,
-                    'type': lib.library_type,
-                    'name': lib.name,
-                    'editable': lib.editable,
-                    'item_count': lib.item_count,
-                    'collection_count': lib.collection_count,
+                    "library_id": lib.library_id,
+                    "type": lib.library_type,
+                    "name": lib.name,
+                    "editable": lib.editable,
+                    "item_count": lib.item_count,
+                    "collection_count": lib.collection_count,
                 }
                 for lib in libraries
             ],
@@ -102,7 +102,6 @@ class ZoteroContext:
 
     def get_window_state(self) -> WindowState:
         return self.bridge.get_window_state()
-
 
     def get_open_readers(self) -> list[ReaderState]:
         return self.get_window_state().readers
@@ -246,10 +245,10 @@ class ZoteroContext:
             "attachments",
             [
                 {
-                    'attachment_key': att.attachment_key,
-                    'path': str(att.path),
-                    'title': att.title,
-                    'collection': att.collection,
+                    "attachment_key": att.attachment_key,
+                    "path": str(att.path),
+                    "title": att.title,
+                    "collection": att.collection,
                 }
                 for att in attachments
             ],
@@ -305,10 +304,10 @@ class ZoteroContext:
             "items",
             [
                 {
-                    'key': item.key,
-                    'title': item.title,
-                    'item_type': item.item_type,
-                    'date_deleted': item.date_deleted,
+                    "key": item.key,
+                    "title": item.title,
+                    "item_type": item.item_type,
+                    "date_deleted": item.date_deleted,
                 }
                 for item in items
             ],
@@ -335,7 +334,10 @@ class ZoteroContext:
         }
 
     def collection_items(
-        self, collection_key: str, *, include_trashed: bool = False,
+        self,
+        collection_key: str,
+        *,
+        include_trashed: bool = False,
         library_id: int | None = None,
     ) -> dict:
         """Direct members of one collection -- the read nothing else could answer."""
@@ -346,10 +348,10 @@ class ZoteroContext:
             "items",
             [
                 {
-                    'item_key': m.item_key,
-                    'title': m.title,
-                    'item_type': m.item_type,
-                    'trashed': m.trashed,
+                    "item_key": m.item_key,
+                    "title": m.title,
+                    "item_type": m.item_type,
+                    "trashed": m.trashed,
                 }
                 for m in members.members
             ],
@@ -367,10 +369,10 @@ class ZoteroContext:
             "collections",
             [
                 {
-                    'key': n.key,
-                    'name': n.name,
-                    'path': n.path,
-                    'item_count': n.item_count,
+                    "key": n.key,
+                    "name": n.name,
+                    "path": n.path,
+                    "item_count": n.item_count,
                 }
                 for n in found
             ],
@@ -393,12 +395,12 @@ class ZoteroContext:
             "hits",
             [
                 {
-                    'item_key': h.item_key,
-                    'title': h.title,
-                    'item_type': h.item_type,
-                    'creators': h.creators,
-                    'score': h.score,
-                    'matched_on': h.matched_on,
+                    "item_key": h.item_key,
+                    "title": h.title,
+                    "item_type": h.item_type,
+                    "creators": h.creators,
+                    "score": h.score,
+                    "matched_on": h.matched_on,
                 }
                 for h in hits
             ],
@@ -422,15 +424,15 @@ class ZoteroContext:
             "annotations",
             [
                 {
-                    'annotation_key': h.annotation_key,
-                    'attachment_key': h.attachment_key,
-                    'parent_key': h.parent_key,
-                    'parent_title': h.parent_title,
-                    'type': h.annotation_type,
-                    'text': h.text,
-                    'comment': h.comment,
-                    'color': h.color,
-                    'page_label': h.page_label,
+                    "annotation_key": h.annotation_key,
+                    "attachment_key": h.attachment_key,
+                    "parent_key": h.parent_key,
+                    "parent_title": h.parent_title,
+                    "type": h.annotation_type,
+                    "text": h.text,
+                    "comment": h.comment,
+                    "color": h.color,
+                    "page_label": h.page_label,
                 }
                 for h in hits
             ],
@@ -444,11 +446,11 @@ class ZoteroContext:
             "documents",
             [
                 {
-                    'attachment_key': h.attachment_key,
-                    'parent_key': h.parent_key,
-                    'title': h.title,
-                    'match_count': h.match_count,
-                    'snippets': list(h.snippets),
+                    "attachment_key": h.attachment_key,
+                    "parent_key": h.parent_key,
+                    "title": h.title,
+                    "match_count": h.match_count,
+                    "snippets": list(h.snippets),
                 }
                 for h in hits
             ],
@@ -468,7 +470,9 @@ class ZoteroContext:
             "text": text[:max_chars],
         }
 
-    def get_sources_with_annotations(self, *, include_citekeys: bool = True, include_all: bool = False) -> dict:
+    def get_sources_with_annotations(
+        self, *, include_citekeys: bool = True, include_all: bool = False
+    ) -> dict:
         """Sources carrying annotations, in the standard envelope.
 
         ⚠ Returned a BARE LIST, which cannot carry a `read_mode` at all — so this was the

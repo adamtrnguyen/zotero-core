@@ -39,6 +39,7 @@ class ZoteroSource:
     #: deciding for them.
     content_type: str = ""
 
+
 @dataclass(frozen=True)
 class Annotation:
     key: str
@@ -80,6 +81,7 @@ class ItemState:
     # write purely so a restore can be checked against it rather than assumed.
     collection_count: int = 0
 
+
 @dataclass(frozen=True)
 class ItemStates:
     """A batch of lookups, plus which read mode produced them."""
@@ -105,6 +107,7 @@ class ItemStates:
     def live(self) -> tuple[str, ...]:
         return tuple(k for k, s in self.states.items() if s.exists and not s.trashed)
 
+
 @dataclass(frozen=True)
 class ZoteroAttachment:
     """One stored PDF attachment, as a corpus builder needs to see it."""
@@ -113,6 +116,7 @@ class ZoteroAttachment:
     path: Path
     title: str  # the PARENT item's title, else the file's stem
     collection: str | None  # first collection the parent is filed under; None = filed nowhere
+
 
 @dataclass(frozen=True)
 class ZoteroAttachments:
@@ -133,6 +137,7 @@ class ZoteroAttachments:
     def __iter__(self):
         return iter(self.items)
 
+
 @dataclass(frozen=True)
 class CollectionNode:
     """One collection. `path` is the breadcrumb, which is what makes a tree readable."""
@@ -144,6 +149,7 @@ class CollectionNode:
     parent_key: str | None
     item_count: int
     subcollections: tuple[CollectionNode, ...] = field(default_factory=tuple)
+
 
 @dataclass(frozen=True)
 class CollectionTree:
@@ -162,12 +168,14 @@ class CollectionTree:
         walk(self.roots)
         return tuple(out)
 
+
 @dataclass(frozen=True)
 class CollectionMember:
     item_key: str
     title: str
     item_type: str
     trashed: bool
+
 
 @dataclass(frozen=True)
 class CollectionMembers:
@@ -178,6 +186,7 @@ class CollectionMembers:
     def __len__(self) -> int:
         return len(self.members)
 
+
 @dataclass(frozen=True)
 class ItemHit:
     item_key: str
@@ -186,6 +195,7 @@ class ItemHit:
     creators: str
     score: float
     matched_on: str
+
 
 @dataclass(frozen=True)
 class AnnotationHit:
@@ -199,6 +209,7 @@ class AnnotationHit:
     color: str
     page_label: str
 
+
 @dataclass(frozen=True)
 class FulltextHit:
     attachment_key: str
@@ -206,6 +217,7 @@ class FulltextHit:
     title: str
     snippets: tuple[str, ...]
     match_count: int
+
 
 @dataclass(frozen=True)
 class Library:

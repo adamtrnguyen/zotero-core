@@ -50,12 +50,6 @@ DEFAULT_LIMIT = 25
 DEFAULT_CONTEXT_CHARS = 160
 
 
-
-
-
-
-
-
 _ITEMS_SQL = """
 SELECT i.key,
        COALESCE(v.value, '') AS title,
@@ -138,7 +132,6 @@ class ZoteroSearchStore:
     # ------------------------------------------------------------------
     # metadata
     # ------------------------------------------------------------------
-
 
     def for_library(self, library_id: int) -> ZoteroSearchStore:
         """A sibling reading the SAME database, scoped to another library.

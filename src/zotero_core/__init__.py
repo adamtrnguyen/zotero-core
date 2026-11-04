@@ -108,6 +108,7 @@ def __getattr__(name: str):
         return value
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
+
 __all__ = [
     # ⚠ THE WRITE SURFACE IS PUBLISHED TOO, as of 2026-08-19. This list was read-only for
     # as long as `core/` was a read-only package, and the merge made that a leftover rather

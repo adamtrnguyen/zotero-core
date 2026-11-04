@@ -98,6 +98,4 @@ def open_readonly(
             conn.execute("SELECT 1 FROM items LIMIT 1").fetchone()
             return conn, ReadMode.SNAPSHOT
         except sqlite3.Error as exc:
-            raise ZoteroReadError(
-                f"Could not open Zotero database read-only: {exc}"
-            ) from exc
+            raise ZoteroReadError(f"Could not open Zotero database read-only: {exc}") from exc

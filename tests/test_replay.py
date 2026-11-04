@@ -89,9 +89,9 @@ def test_a_hostile_manifest_is_listed_as_unreplayable_rather_than_run(journal, s
 
 def test_an_unknown_verb_is_not_replayable(journal, session):
     _manifest(journal, "trash_items", "20260819-120000-000001", "drop_everything(['A'])")
-    assert (undo_mod.list_entries(
-        str(journal), journal=session.journal
-    )[0].blocked_reason or "").startswith("`drop_everything`")
+    assert (
+        undo_mod.list_entries(str(journal), journal=session.journal)[0].blocked_reason or ""
+    ).startswith("`drop_everything`")
 
 
 # --------------------------------------------------------------------------
@@ -176,9 +176,7 @@ def test_undo_replays_the_inverse_for_real(journal, zotero, session):
     zotero.trash("AAAA1111")
     _manifest(journal, "trash_items", "20260819-120000-000001", "restore_items(['AAAA1111'])")
 
-    result = undo_mod.undo(
-        journal_dir=str(journal), session=session
-    )
+    result = undo_mod.undo(journal_dir=str(journal), session=session)
     assert result["ok"] is True
     assert result["undone"]["undoing"] == "trash_items"
     assert not zotero.is_trashed("AAAA1111")
@@ -191,9 +189,7 @@ def test_undo_picks_the_most_recent_REPLAYABLE_entry(journal, zotero, session):
     _manifest(journal, "trash_items", "20260819-120000-000001", "restore_items(['AAAA1111'])")
     _manifest(journal, "write_note", "20260819-130000-000001", None)  # newer, blocked
 
-    result = undo_mod.undo(
-        journal_dir=str(journal), session=session
-    )
+    result = undo_mod.undo(journal_dir=str(journal), session=session)
     assert result["undone"]["undoing"] == "trash_items"
 
 
@@ -207,9 +203,7 @@ def test_undo_can_target_one_manifest_by_name(journal, zotero, session):
     )
     _manifest(journal, "trash_items", "20260819-130000-000001", "restore_items(['BBBB2222'])")
 
-    undo_mod.undo(
-        older.name, journal_dir=str(journal), session=session
-    )
+    undo_mod.undo(older.name, journal_dir=str(journal), session=session)
     assert not zotero.is_trashed("AAAA1111")
     assert zotero.is_trashed("BBBB2222"), "targeted the wrong manifest"
 

@@ -61,8 +61,14 @@ def test_the_dict_shape_is_declared_once_in_the_domain():
     adapter imports `ZoteroAnnotationError` from that module, never `ANNOTATION_TYPE` --
     so the shim existed for its own tests. Removed; the domain is the one declaration.
     """
-    assert ANNOTATION_TYPE == {1: "highlight", 2: "note", 3: "image", 4: "ink",
-                               5: "underline", 6: "text"}
+    assert ANNOTATION_TYPE == {
+        1: "highlight",
+        2: "note",
+        3: "image",
+        4: "ink",
+        5: "underline",
+        6: "text",
+    }
 
 
 def test_adding_a_type_to_the_enum_would_reach_every_consumer():

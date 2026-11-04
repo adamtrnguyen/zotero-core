@@ -490,7 +490,9 @@ class FakeLinker(LinkerClient):
             key = f"ATT{len(self.posts):05d}"
             if self.apply:
                 self.builder.add(
-                    key, payload.get("title") or "linked", "attachment",
+                    key,
+                    payload.get("title") or "linked",
+                    "attachment",
                     parent=payload["parentItemKey"],
                 )
             return {"ok": True, "attachmentKey": key}
@@ -498,7 +500,10 @@ class FakeLinker(LinkerClient):
             key = f"ANN{len(self.posts):05d}"
             if self.apply:
                 self.builder.add(
-                    key, "", "annotation", parent=payload["parentItemKey"],
+                    key,
+                    "",
+                    "annotation",
+                    parent=payload["parentItemKey"],
                 )
             return {"ok": True, "annotationKey": key}
         keys = payload["itemKeys"]
@@ -552,7 +557,9 @@ class FakeCookjohn(CookjohnClient):
             key = f"IMP{self._created:05d}"
             if self.apply:
                 self.builder.add(
-                    key, arguments.get("title") or "imported", "attachment",
+                    key,
+                    arguments.get("title") or "imported",
+                    "attachment",
                     parent=arguments["parentItemKey"],
                 )
         else:
@@ -604,9 +611,7 @@ class FakeCookjohn(CookjohnClient):
             self._created += 1
             key = f"NOTE{self._created:04d}"
             if self.apply:
-                self.builder.add(
-                    key, "note", "note", parent=arguments.get("parentKey")
-                )
+                self.builder.add(key, "note", "note", parent=arguments.get("parentKey"))
             return {"success": True, "data": {"noteKey": key}}
         return {"success": True, "noteKey": arguments.get("noteKey")}
 
@@ -665,8 +670,11 @@ class FakeCookjohn(CookjohnClient):
                 self.builder.trash(item_key)
         if self.apply:
             self.builder.delete_collection(key)
-        return {"success": True, "deleted": key, "itemsTrashed": len(members)
-                if arguments.get("deleteItems") else 0}
+        return {
+            "success": True,
+            "deleted": key,
+            "itemsTrashed": len(members) if arguments.get("deleteItems") else 0,
+        }
 
     def _add_items_to_collection(self, arguments: dict):
         if self.apply:
@@ -727,9 +735,13 @@ def _never_touch_the_real_zotero(monkeypatch):
         Path("/nonexistent/not-a-zotero.sqlite"),
     )
     monkeypatch.setattr(
-        "zotero_core.infrastructure.transports.linker.DEFAULT_LINKER_URL", "http://127.0.0.1:1/zotero-linker"
+        "zotero_core.infrastructure.transports.linker.DEFAULT_LINKER_URL",
+        "http://127.0.0.1:1/zotero-linker",
     )
-    monkeypatch.setattr("zotero_core.infrastructure.transports.cookjohn.DEFAULT_COOKJOHN_URL", "http://127.0.0.1:1/mcp")
+    monkeypatch.setattr(
+        "zotero_core.infrastructure.transports.cookjohn.DEFAULT_COOKJOHN_URL",
+        "http://127.0.0.1:1/mcp",
+    )
 
     def _refuse(*_args, **_kwargs):
         raise AssertionError("a test tried to open a real HTTP connection")
@@ -761,8 +773,6 @@ def zotero_down(monkeypatch):
         raise urllib.error.URLError("Connection refused")
 
     monkeypatch.setattr("urllib.request.urlopen", _refused)
-
-
 
 
 class StubProbe:

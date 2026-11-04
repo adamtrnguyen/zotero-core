@@ -220,9 +220,7 @@ def undo(
                 "no replayable manifest in the journal",
                 {
                     "checked": len(entries),
-                    "blocked": [
-                        {"op": e.op, "why": e.blocked_reason} for e in entries[:10]
-                    ],
+                    "blocked": [{"op": e.op, "why": e.blocked_reason} for e in entries[:10]],
                 },
             )
         entry = replayable[0]
@@ -245,8 +243,8 @@ def undo(
     }
     if dry_run:
         return ok(
-            'undo:dry_run',
-            transport='none',
+            "undo:dry_run",
+            transport="none",
             would_call=plan,
         )
 
@@ -258,8 +256,8 @@ def undo(
     # caller's would be replaying against another database.
     result = verb(*args, **kwargs, session=session)
     return ok(
-        'undo',
-        transport='none',
+        "undo",
+        transport="none",
         undone=plan,
         result=result,
     )

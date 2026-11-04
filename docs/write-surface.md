@@ -28,11 +28,11 @@ try:
     item = create_item("book", {"title": "Systems Thinking"}, calibre_uuid=uuid, session=session)
     add_tags(item["item_key"], ["systems", "to-read"], session=session)
 except WriteBlocked as e:
-    print(e.code, e.reason)   # e.g. "duplicate_item", plus prose
-    print(e.as_dict())        # the shape an MCP tool returns
+    print(e.code, e.reason)  # e.g. "duplicate_item", plus prose
+    print(e.as_dict())  # the shape an MCP tool returns
 
-trash_items([item["item_key"]], session=session)          # recoverable
-restore_items([item["item_key"]], session=session)        # the inverse, always available
+trash_items([item["item_key"]], session=session)  # recoverable
+restore_items([item["item_key"]], session=session)  # the inverse, always available
 ```
 
 ## Why it exists

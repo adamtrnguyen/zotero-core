@@ -247,9 +247,7 @@ def _any_key(payload) -> str | None:
 
 def _text_of(result: dict) -> str:
     return "\n".join(
-        block.get("text", "")
-        for block in result.get("content", [])
-        if block.get("type") == "text"
+        block.get("text", "") for block in result.get("content", []) if block.get("type") == "text"
     )
 
 

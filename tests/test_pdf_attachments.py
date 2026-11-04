@@ -103,8 +103,9 @@ def test_a_long_title_is_never_truncated(zotero):
 def test_another_library_is_not_enumerated_into_this_one(zotero):
     """Every read here is library-scoped; this database shape has group libraries too."""
     zotero.add("PARENT08", title="Group Paper", library_id=2)
-    zotero.add("ATTACH08", item_type="attachment", parent="PARENT08", stored=True, title="",
-               library_id=2)
+    zotero.add(
+        "ATTACH08", item_type="attachment", parent="PARENT08", stored=True, title="", library_id=2
+    )
     _pdf(zotero, "ATTACH08")
 
     assert len(zotero.store().pdf_attachments()) == 0
@@ -113,8 +114,9 @@ def test_another_library_is_not_enumerated_into_this_one(zotero):
 def test_limit_bounds_the_enumeration(zotero):
     for i in range(3):
         zotero.add(f"PARENT1{i}", title=f"Paper {i}")
-        zotero.add(f"ATTACH1{i}", item_type="attachment", parent=f"PARENT1{i}", stored=True,
-                   title="")
+        zotero.add(
+            f"ATTACH1{i}", item_type="attachment", parent=f"PARENT1{i}", stored=True, title=""
+        )
         _pdf(zotero, f"ATTACH1{i}")
 
     assert len(zotero.store().pdf_attachments(limit=2)) == 2

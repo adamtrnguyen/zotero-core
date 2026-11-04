@@ -35,6 +35,4 @@ def render_json(payload: Any, *, indent: int | None = 2) -> str:
 
     `indent=None` produces the compact form the CLI emits without `--pretty`.
     """
-    return json.dumps(
-        to_jsonable(payload), ensure_ascii=False, indent=indent, default=str
-    )
+    return json.dumps(to_jsonable(payload), ensure_ascii=False, indent=indent, default=str)

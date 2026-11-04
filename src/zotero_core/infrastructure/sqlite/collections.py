@@ -57,14 +57,6 @@ MAX_DEPTH = 32
 PATH_SEPARATOR = " > "
 
 
-
-
-
-
-
-
-
-
 _TREE_SQL = f"""
 WITH RECURSIVE tree(collectionID, key, name, parentCollectionID, depth, path) AS (
     SELECT c.collectionID, c.key, c.collectionName, c.parentCollectionID, 0, c.collectionName
@@ -127,7 +119,6 @@ class ZoteroCollectionStore:
         self.db_path = Path(db_path or DEFAULT_ZOTERO_DB).expanduser()
         self.library_id = library_id
         self.busy_timeout_ms = busy_timeout_ms
-
 
     def for_library(self, library_id: int) -> ZoteroCollectionStore:
         """A sibling reading the SAME database, scoped to another library.
@@ -225,9 +216,7 @@ class ZoteroCollectionStore:
             conn.close()
 
         members = tuple(
-            CollectionMember(
-                item_key=row[0], title=row[1], item_type=row[2], trashed=bool(row[3])
-            )
+            CollectionMember(item_key=row[0], title=row[1], item_type=row[2], trashed=bool(row[3]))
             for row in rows
             if include_trashed or not row[3]
         )

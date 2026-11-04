@@ -73,7 +73,7 @@ def test_case_and_punctuation_do_not_reduce_the_score():
 
 
 def test_a_substring_scores_high_but_never_beats_an_exact_match():
-    """"learning" is inside "machine learning" and must not outrank the exact title."""
+    """ "learning" is inside "machine learning" and must not outrank the exact title."""
     partial = fuzzy_score("learning", "machine learning")
     exact = fuzzy_score("machine learning", "machine learning")
     assert 0.9 < partial < exact == 1.0

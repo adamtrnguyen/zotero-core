@@ -40,8 +40,6 @@ SELECT l.libraryID,
 """
 
 
-
-
 def list_libraries(
     db_path: str | Path | None = None,
     *,

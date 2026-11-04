@@ -116,9 +116,7 @@ def score_tokens(query_tokens: list[str], candidate_normalized: str) -> float:
     return total / len(query_tokens)
 
 
-def _best_token_match(
-    matcher: difflib.SequenceMatcher, token: str, candidates: list[str]
-) -> float:
+def _best_token_match(matcher: difflib.SequenceMatcher, token: str, candidates: list[str]) -> float:
     """The closest any candidate token comes to `token`."""
     # seq2 is the side SequenceMatcher builds an index for, so it is set ONCE here and
     # seq1 varies below. Rebuilding that index per comparison is the difference between

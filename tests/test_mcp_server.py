@@ -64,10 +64,22 @@ from zotero_core.interfaces import write_mcp as adapter
 # The package's whole public write surface, as `__init__.__all__` groups it. A verb
 # added to the package and not exposed here fails `test_every_public_write_verb_...`.
 PUBLIC_WRITE_VERBS = [
-    create_item, link_attachment, import_attachment, write_note, create_collection,
-    update_metadata, add_tags, remove_tags, set_tags, replace_creators,
-    update_collection, add_items_to_collection, remove_items_from_collection,
-    trash_items, restore_items, delete_collection,
+    create_item,
+    link_attachment,
+    import_attachment,
+    write_note,
+    create_collection,
+    update_metadata,
+    add_tags,
+    remove_tags,
+    set_tags,
+    replace_creators,
+    update_collection,
+    add_items_to_collection,
+    remove_items_from_collection,
+    trash_items,
+    restore_items,
+    delete_collection,
 ]
 
 # Injection seams and the audit-trail path. None may appear in a tool schema.
@@ -96,6 +108,7 @@ def wired(zotero):
 # --------------------------------------------------------------------------
 # the schema and the signatures must agree — 17 pairs, checked rather than trusted
 # --------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("spec", adapter.TOOLS, ids=lambda s: s.name)
 def test_every_declared_property_is_a_real_parameter_of_the_verb(spec):
@@ -157,6 +170,7 @@ def test_the_schemas_are_wellformed_json_schema_objects():
 # force: exposed everywhere it exists, never defaulted on
 # --------------------------------------------------------------------------
 
+
 def test_no_schema_defaults_force_to_true():
     """The one requirement that would silently defeat the gates rather than break them.
     `set_tags` and `replace_creators` refuse without it, `delete_collection`'s cascade
@@ -180,6 +194,7 @@ def test_every_verb_with_a_force_gate_exposes_it():
 # --------------------------------------------------------------------------
 # WriteBlocked is DATA — the reason this exists rather than a python one-liner
 # --------------------------------------------------------------------------
+
 
 def test_a_blocked_write_renders_as_structured_data_with_a_stable_code(wired, session):
     """A precondition failure carries `code` (branchable), `reason` (prose for a human)
@@ -221,6 +236,7 @@ def test_every_reason_code_the_adapter_can_emit_is_in_the_published_set(wired, s
 # the gates are not weakened by going through MCP
 # --------------------------------------------------------------------------
 
+
 def test_replacing_creators_through_mcp_still_needs_the_second_ask(wired, session):
     wired.add("ABCD2345", "A Paper", creators=[{"firstName": "A", "lastName": "Author"}])
     with pytest.raises(WriteBlocked) as caught:
@@ -255,7 +271,8 @@ def test_a_no_op_update_is_still_refused_through_mcp(wired, session):
     wired.add("ABCD2345", "A Paper", fields={"publisher": "ACM"})
     with pytest.raises(WriteBlocked) as caught:
         adapter.call_writes(
-            "zotero_update_metadata", {"item_key": "ABCD2345", "fields": {"publisher": "ACM"}},
+            "zotero_update_metadata",
+            {"item_key": "ABCD2345", "fields": {"publisher": "ACM"}},
             session=session,
         )
     assert caught.value.code == "nothing_to_do"
@@ -293,6 +310,7 @@ def test_trash_and_restore_round_trip_through_mcp(wired, linker, session):
 # --------------------------------------------------------------------------
 # dispatch
 # --------------------------------------------------------------------------
+
 
 def test_an_unknown_tool_is_named_in_the_error(session):
     with pytest.raises(ValueError, match="Unknown tool: zotero_nope"):
@@ -341,8 +359,9 @@ def test_a_null_on_a_required_argument_reaches_the_verbs_coded_gate(session):
 # preflight — read-only, and reports the two plugins separately
 # --------------------------------------------------------------------------
 
+
 def test_preflight_reports_each_transport_separately(session):
-    """"Zotero is up and one plugin is missing" is a different job to fix than "Zotero
+    """ "Zotero is up and one plugin is missing" is a different job to fix than "Zotero
     is closed", and it decides which verbs are available. `require_zotero` raises on the
     first failure, which is right for a write and wrong for a preflight."""
     out = adapter.call_writes("zotero_write_preflight", {}, session=session)
@@ -383,6 +402,7 @@ def test_preflight_reports_an_unresolvable_key_as_data(session):
 # --------------------------------------------------------------------------
 # `mcp` must not be in the write path's import graph
 # --------------------------------------------------------------------------
+
 
 def test_mcp_is_imported_inside_a_function_never_at_module_level():
     """`dependencies = []` is the promise this protects. A module-level `import mcp` here

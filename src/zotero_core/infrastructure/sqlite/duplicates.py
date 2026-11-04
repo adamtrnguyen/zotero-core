@@ -126,18 +126,30 @@ def check_duplicate(
         trashed = bool(deleted)
         if want_doi and clean_doi(row_doi) == want_doi:
             signals.append(
-                {"signal": "doi", "item_key": key, "trashed": trashed,
-                 "detail": f"DOI {want_doi} on {row_title!r}"}
+                {
+                    "signal": "doi",
+                    "item_key": key,
+                    "trashed": trashed,
+                    "detail": f"DOI {want_doi} on {row_title!r}",
+                }
             )
         if want_isbn and clean_isbn(row_isbn) == want_isbn:
             signals.append(
-                {"signal": "isbn", "item_key": key, "trashed": trashed,
-                 "detail": f"ISBN {want_isbn} on {row_title!r}"}
+                {
+                    "signal": "isbn",
+                    "item_key": key,
+                    "trashed": trashed,
+                    "detail": f"ISBN {want_isbn} on {row_title!r}",
+                }
             )
         if want_uuid and want_uuid in {u.lower() for u in _calibre_uuids(row_extra)}:
             signals.append(
-                {"signal": "calibre-uuid", "item_key": key, "trashed": trashed,
-                 "detail": f"calibre-uuid {want_uuid} on {row_title!r}"}
+                {
+                    "signal": "calibre-uuid",
+                    "item_key": key,
+                    "trashed": trashed,
+                    "detail": f"calibre-uuid {want_uuid} on {row_title!r}",
+                }
             )
         if (
             want_title
@@ -149,8 +161,12 @@ def check_duplicate(
             and first_authors.get(key) == want_surname
         ):
             signals.append(
-                {"signal": "title+author", "item_key": key, "trashed": trashed,
-                 "detail": f"{row_title!r} — {want_surname}"}
+                {
+                    "signal": "title+author",
+                    "item_key": key,
+                    "trashed": trashed,
+                    "detail": f"{row_title!r} — {want_surname}",
+                }
             )
 
     live = [s for s in signals if not s["trashed"]]

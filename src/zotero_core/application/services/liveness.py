@@ -67,10 +67,14 @@ def require_zotero(
             # A plugin did not answer. Which of the two failures it is depends on
             # whether the APPLICATION is up, so that is checked only now -- on the
             # failure path, where the extra request costs nothing anybody waits for.
-            if exc.code in (
-                Reason.ZOTERO_NOT_RUNNING,
-                Reason.COOKJOHN_NOT_INSTALLED,
-            ) and not probe.is_running():
+            if (
+                exc.code
+                in (
+                    Reason.ZOTERO_NOT_RUNNING,
+                    Reason.COOKJOHN_NOT_INSTALLED,
+                )
+                and not probe.is_running()
+            ):
                 raise WriteBlocked(
                     Reason.ZOTERO_NOT_RUNNING,
                     "Zotero is not running — every write channel is code executing "

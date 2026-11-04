@@ -93,9 +93,9 @@ def test_the_public_surface_is_enough_for_the_known_consumers():
         # `ZoteroContext` never left the surface, so a name-resolution test saw nothing
         # wrong. A type you cannot construct is not a usable export.
         "build_context",
-    "WriteBlocked",
-    "Reason",
-    "ALL_REASONS",
+        "WriteBlocked",
+        "Reason",
+        "ALL_REASONS",
     ):
         assert hasattr(zotero_core, name), f"{name} left the public surface"
 
@@ -119,10 +119,10 @@ def test_the_public_surface_is_enough_to_write():
         "WriteBlocked",
         "Reason",
         "build_write_session",
-    "build_context",
-    "WriteBlocked",
-    "Reason",
-    "ALL_REASONS",
+        "build_context",
+        "WriteBlocked",
+        "Reason",
+        "ALL_REASONS",
         "CookjohnClient",
         "import_attachment",
         "update_metadata",

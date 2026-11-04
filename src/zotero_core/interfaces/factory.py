@@ -92,9 +92,7 @@ def build_write_session(
         ),
         journal=journal if journal is not None else FileJournal(),
         probe=probe if probe is not None else HttpZoteroProbe(),
-        duplicates=(
-            duplicates if duplicates is not None else CatalogueDuplicateFinder(store)
-        ),
+        duplicates=(duplicates if duplicates is not None else CatalogueDuplicateFinder(store)),
         papers=papers if papers is not None else WebPaperResolver(),
     )
 
@@ -146,17 +144,11 @@ def build_context(
     items = items if items is not None else ZoteroItemStore(db)
     return ZoteroContext(
         bridge=bridge if bridge is not None else ZoteroBridgeClient(bridge_url),
-        annotations=(
-            annotations if annotations is not None else ZoteroAnnotationStore(db)
-        ),
+        annotations=(annotations if annotations is not None else ZoteroAnnotationStore(db)),
         bbt=bbt if bbt is not None else BetterBibTeXClient(bbt_rpc_url),
         items=items,
-        collections=(
-            collections if collections is not None else ZoteroCollectionStore(db)
-        ),
+        collections=(collections if collections is not None else ZoteroCollectionStore(db)),
         search=search if search is not None else ZoteroSearchStore(db),
         libraries=libraries if libraries is not None else SqliteLibraryCatalogue(db),
-        duplicates=(
-            duplicates if duplicates is not None else CatalogueDuplicateFinder(items)
-        ),
+        duplicates=(duplicates if duplicates is not None else CatalogueDuplicateFinder(items)),
     )

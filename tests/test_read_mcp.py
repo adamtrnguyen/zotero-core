@@ -62,8 +62,7 @@ def test_every_required_argument_has_no_default_in_the_verb():
         params = inspect.signature(spec.verb).parameters
         for name in spec.required:
             assert params[name].default is inspect.Parameter.empty, (
-                f"{spec.name}.{name} is declared required but defaults to "
-                f"{params[name].default!r}"
+                f"{spec.name}.{name} is declared required but defaults to {params[name].default!r}"
             )
 
 
@@ -404,15 +403,16 @@ def test_an_annotated_html_snapshot_is_a_source(zotero, ctx):
     reaches for to audit annotation coverage reported a clean library.
     """
     zotero.add("PARENT01", "A Paper With A Snapshot")
-    zotero.add("SNAP0001", "snapshot.html", "attachment",
-               parent="PARENT01", content_type="text/html")
+    zotero.add(
+        "SNAP0001", "snapshot.html", "attachment", parent="PARENT01", content_type="text/html"
+    )
     zotero.add("ANNO0001", "", "annotation", parent="SNAP0001")
 
     out = ctx.get_sources_with_annotations(include_citekeys=False)
     keys = {s.attachment_key for s in out["sources"]}
     assert "SNAP0001" in keys, "an annotated HTML snapshot is still being dropped"
     snap = next(s for s in out["sources"] if s.attachment_key == "SNAP0001")
-    assert snap.content_type == "text/html"      # carried, not filtered on
+    assert snap.content_type == "text/html"  # carried, not filtered on
     assert snap.parent_key == "PARENT01"
 
 
@@ -424,7 +424,7 @@ def test_a_standalone_annotated_attachment_is_its_own_source(zotero, ctx):
     key — stated here because `ZoteroSource.parent_key` is a `str` and the alternative
     (empty) would read as "parent unknown" rather than "there is no parent".
     """
-    zotero.add("LOOSE001", "loose.pdf", "attachment")     # no parent=
+    zotero.add("LOOSE001", "loose.pdf", "attachment")  # no parent=
     zotero.add("ANNO0002", "", "annotation", parent="LOOSE001")
 
     out = ctx.get_sources_with_annotations(include_citekeys=False)
@@ -440,14 +440,15 @@ def test_the_sources_verb_agrees_with_the_annotation_search(zotero, ctx):
     zotero.add("PARENT02", "Another Paper")
     zotero.add("PDF00002", "paper.pdf", "attachment", parent="PARENT02")
     zotero.add("ANNO0003", "", "annotation", parent="PDF00002")
-    zotero.add("SNAP0002", "snap.html", "attachment",
-               parent="PARENT02", content_type="text/html")
+    zotero.add("SNAP0002", "snap.html", "attachment", parent="PARENT02", content_type="text/html")
     zotero.add("ANNO0004", "", "annotation", parent="SNAP0002")
 
     hits, _ = ctx.search.annotations("", limit=10**9)
     searchable = {h.attachment_key for h in hits}
-    reported = {s.attachment_key for s in ctx.get_sources_with_annotations(
-        include_citekeys=False)["sources"]}
+    reported = {
+        s.attachment_key
+        for s in ctx.get_sources_with_annotations(include_citekeys=False)["sources"]
+    }
     assert searchable == reported
 
 

@@ -36,6 +36,7 @@ class ZoteroCollection:
             id=data.get("id"),
         )
 
+
 @dataclass(frozen=True)
 class ZoteroItem:
     key: str
@@ -54,6 +55,7 @@ class ZoteroItem:
             parent_key=data.get("parentKey") or data.get("parent_key"),
         )
 
+
 @dataclass(frozen=True)
 class TabState:
     type: str
@@ -69,6 +71,7 @@ class TabState:
             item_id=data.get("itemID") or data.get("item_id"),
             selected=bool(data.get("selected")),
         )
+
 
 @dataclass(frozen=True)
 class ReaderPosition:
@@ -87,6 +90,7 @@ class ReaderPosition:
             scroll_y_percent=_pick(data, "scrollYPercent", "scroll_y_percent"),
             cfi=data.get("cfi"),
         )
+
 
 @dataclass(frozen=True)
 class ReaderState:
@@ -109,6 +113,7 @@ class ReaderState:
             title=data.get("title"),
             position=ReaderPosition.from_bridge(data.get("position")),
         )
+
 
 @dataclass(frozen=True)
 class WindowState:
@@ -134,8 +139,7 @@ class WindowState:
             collected_at=str(data.get("collectedAt") or data.get("collected_at") or ""),
             selected_collection=ZoteroCollection.from_bridge(sections.get("selectedCollection")),
             selected_items=[
-                ZoteroItem.from_bridge(item)
-                for item in sections.get("selectedItems", [])
+                ZoteroItem.from_bridge(item) for item in sections.get("selectedItems", [])
             ],
             selected_tab_id=tabs_section.get("selectedID") or tabs_section.get("selected_id"),
             selected_tab_type=tabs_section.get("selectedType") or tabs_section.get("selected_type"),

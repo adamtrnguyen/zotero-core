@@ -212,4 +212,6 @@ class ZoteroAnnotationStore:
 
 def annotation_url(attachment_key: str, page_label: str, annotation_key: str) -> str:
     page_part = f"page={page_label}&" if page_label else ""
-    return f"zotero://open-pdf/library/items/{attachment_key}?{page_part}annotation={annotation_key}"
+    return (
+        f"zotero://open-pdf/library/items/{attachment_key}?{page_part}annotation={annotation_key}"
+    )

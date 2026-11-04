@@ -193,7 +193,9 @@ _HANDLERS: dict[str, Callable[[ZoteroContext, argparse.Namespace], Any]] = {
         include_comments=not a.no_comments,
     ),
     "resolve-pdf": _resolve_pdf,
-    "sources": lambda ctx, a: ctx.get_sources_with_annotations(include_citekeys=not a.no_citekeys, include_all=getattr(a, "all", False)),
+    "sources": lambda ctx, a: ctx.get_sources_with_annotations(
+        include_citekeys=not a.no_citekeys, include_all=getattr(a, "all", False)
+    ),
     "item": lambda ctx, a: ctx.get_item(a.item_key),
     "duplicate": _duplicate,
     "pdfs": lambda ctx, a: ctx.list_pdfs(limit=a.limit),
@@ -206,12 +208,13 @@ _HANDLERS: dict[str, Callable[[ZoteroContext, argparse.Namespace], Any]] = {
     "collection-items": lambda ctx, a: ctx.collection_items(
         a.collection_key, include_trashed=a.include_trashed, library_id=a.library_id
     ),
-    "item-collections": lambda ctx, a: ctx.item_collections(
-        a.item_keys, library_id=a.library_id
-    ),
+    "item-collections": lambda ctx, a: ctx.item_collections(a.item_keys, library_id=a.library_id),
     "find-collections": lambda ctx, a: ctx.find_collections(a.name, library_id=a.library_id),
     "search": lambda ctx, a: ctx.search_items(
-        a.query, fuzzy=not a.exact, limit=a.limit, item_type=a.item_type,
+        a.query,
+        fuzzy=not a.exact,
+        limit=a.limit,
+        item_type=a.item_type,
         library_id=a.library_id,
     ),
     "search-annotations": lambda ctx, a: ctx.search_annotations(
@@ -221,9 +224,7 @@ _HANDLERS: dict[str, Callable[[ZoteroContext, argparse.Namespace], Any]] = {
         limit=a.limit,
     ),
     "search-fulltext": lambda ctx, a: ctx.search_fulltext(a.query, limit=a.limit),
-    "attachment-text": lambda ctx, a: ctx.attachment_text(
-        a.attachment_key, max_chars=a.max_chars
-    ),
+    "attachment-text": lambda ctx, a: ctx.attachment_text(a.attachment_key, max_chars=a.max_chars),
 }
 
 

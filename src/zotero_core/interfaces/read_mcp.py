@@ -52,6 +52,7 @@ SERVER_NAME = "zotero-context"
 # Derived from the domain enum, not transcribed. This was a hand-maintained tuple whose
 # own comment asked to be kept in step by hand -- a promise no comment can keep.
 
+
 def _context_from_env() -> ZoteroContext:
     """The default context for a server nobody handed one to.
 
@@ -368,7 +369,8 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "Return highlights and comments for a Zotero ATTACHMENT key (not the parent "
             "item key -- use resolve_zotero_pdf to get one from a parent or citekey). Each "
             "carries `color` (hex), `page_label` and a `zotero_url` deep link."
-            + _COLOUR_RULES + _ATTACHMENT_FOOTER
+            + _COLOUR_RULES
+            + _ATTACHMENT_FOOTER
         ),
         properties={
             "attachment_key": {"type": "string", "description": "8-char attachment key."},
@@ -582,7 +584,8 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "type. Colour is how people encode meaning in Zotero, so 'the yellow ones' "
             "is a real query. Substring, not fuzzy -- you highlighted the words "
             "yourself. Omit `query` to browse by colour or type alone."
-            + _COLOUR_RULES + _ATTACHMENT_FOOTER
+            + _COLOUR_RULES
+            + _ATTACHMENT_FOOTER
         ),
         properties={
             "query": {"type": "string"},
@@ -664,9 +667,7 @@ def error_code(exc: BaseException) -> str:
     return "error"
 
 
-def call_read(
-    name: str, arguments: dict[str, Any], *, ctx: ZoteroContext | None = None
-) -> Any:
+def call_read(name: str, arguments: dict[str, Any], *, ctx: ZoteroContext | None = None) -> Any:
     """Dispatch one tool call. Thin by design -- the logic is shared, see `tool_spec`.
 
     `ctx` is the injection point this adapter lacked. Defaulting it here is correct in a way
@@ -674,7 +675,9 @@ def call_read(
     allowed to name concrete adapters.
     """
     return _dispatch(
-        _BY_NAME, name, arguments,
+        _BY_NAME,
+        name,
+        arguments,
         extra={"ctx": ctx if ctx is not None else _context_from_env()},
     )
 

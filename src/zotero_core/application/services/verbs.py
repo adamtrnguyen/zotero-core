@@ -66,6 +66,7 @@ _NOT_REGULAR = ("note", "attachment", "annotation")
 # shared gates
 # --------------------------------------------------------------------------
 
+
 def check_keys(item_keys) -> list[str]:
     """Normalise and shape-check a batch. Order preserved, duplicates dropped.
 
@@ -126,11 +127,10 @@ def _require_regular_item(states, key: str) -> None:
         )
 
 
-
-
 # --------------------------------------------------------------------------
 # CREATE
 # --------------------------------------------------------------------------
+
 
 def _create_preflight(
     item_type: str,
@@ -231,11 +231,11 @@ def create_item(
         )
 
     result = ok(
-        'create_item',
-        transport='cookjohn',
+        "create_item",
+        transport="cookjohn",
         item_key=item_key,
         item_type=item_type,
-        title=fields.get('title'),
+        title=fields.get("title"),
         duplicate_check=dup,
         cookjohn=reply,
         undo_call=f"trash_items(['{item_key}'])",
@@ -244,9 +244,7 @@ def create_item(
     if collection_key:
         from zotero_core.application.services.collections import add_items_to_collection
 
-        result["collection"] = add_items_to_collection(
-            collection_key, [item_key], session=session
-        )
+        result["collection"] = add_items_to_collection(collection_key, [item_key], session=session)
     # Verify by READING it back: the create is only real if the item resolves.
     after = session.store.item_states([item_key])
     result["verification"] = {
@@ -314,9 +312,7 @@ def _verify_attachment(
         return verdict
     if info.get("file_exists") is None:
         verdict["file"] = "unresolved"
-        verdict["note"] = info.get(
-            "note", "the path could not be resolved from the database alone"
-        )
+        verdict["note"] = info.get("note", "the path could not be resolved from the database alone")
     elif not info.get("file_exists"):
         verdict["verified"] = "unverified"
         verdict["file"] = "missing"
@@ -370,10 +366,10 @@ def link_attachment(
         {"parentItemKey": parent_item_key, "path": path, "title": title or os.path.basename(path)},
     )
     return ok(
-        'link_attachment',
-        transport='linker',
+        "link_attachment",
+        transport="linker",
         parent_item_key=parent_item_key,
-        attachment_key=reply.get('attachmentKey'),
+        attachment_key=reply.get("attachmentKey"),
         path=path,
         linker=reply,
         verification=_verify_attachment(
@@ -401,9 +397,7 @@ def import_attachment(
     """
     check_keys([parent_item_key])
     if not os.path.exists(path):
-        raise WriteBlocked(
-            Reason.FILE_NOT_FOUND, f"no file at {path}", {"path": path}
-        )
+        raise WriteBlocked(Reason.FILE_NOT_FOUND, f"no file at {path}", {"path": path})
     info = session.require("cookjohn")
     require_items(session.store, [parent_item_key])
     arguments = {"action": "import", "parentItemKey": parent_item_key, "filePath": path}
@@ -423,8 +417,8 @@ def import_attachment(
             {"parent_item_key": parent_item_key, "path": path, "cookjohn": reply},
         )
     return ok(
-        'import_attachment',
-        transport='cookjohn',
+        "import_attachment",
+        transport="cookjohn",
         parent_item_key=parent_item_key,
         attachment_key=attachment_key,
         path=path,
@@ -439,6 +433,7 @@ def import_attachment(
 # --------------------------------------------------------------------------
 # UPDATE
 # --------------------------------------------------------------------------
+
 
 def update_metadata(
     item_key: str,
@@ -460,7 +455,8 @@ def update_metadata(
     check_keys([item_key])
     if not fields:
         raise WriteBlocked(
-            Reason.NOTHING_TO_DO, "no fields given — refusing a no-op update",
+            Reason.NOTHING_TO_DO,
+            "no fields given — refusing a no-op update",
             {"item_key": item_key},
         )
     info = session.require("cookjohn")
@@ -472,8 +468,7 @@ def update_metadata(
     if len(unchanged) == len(fields):
         raise WriteBlocked(
             Reason.NOTHING_TO_DO,
-            f"every field already holds the given value on {item_key} — refusing a "
-            "no-op write",
+            f"every field already holds the given value on {item_key} — refusing a no-op write",
             {"item_key": item_key, "fields": sorted(fields)},
         )
 
@@ -498,22 +493,20 @@ def update_metadata(
                 "remove a field, so the inverse only covers `fields`"
             ),
         },
-        inverse=(
-            f"update_metadata({item_key!r}, {overwritten!r})" if overwritten else None
-        ),
+        inverse=(f"update_metadata({item_key!r}, {overwritten!r})" if overwritten else None),
         journal_dir=journal_dir,
     )
     reply = session.cookjohn.call("write_metadata", {"itemKey": item_key, "fields": fields})
     result = ok(
-        'update_metadata',
-        transport='cookjohn',
+        "update_metadata",
+        transport="cookjohn",
         item_key=item_key,
         fields_written=fields,
         fields_overwritten=overwritten,
         fields_added=added,
         cookjohn=reply,
         undo_manifest=manifest,
-        undo_call=f'update_metadata({item_key!r}, {overwritten!r})' if overwritten else None,
+        undo_call=f"update_metadata({item_key!r}, {overwritten!r})" if overwritten else None,
         versions=info,
     )
     result["verification"] = _verify_fields(
@@ -685,15 +678,15 @@ def replace_creators(
         "write_metadata", {"itemKey": item_key, "creators": list(creators)}
     )
     return ok(
-        'replace_creators',
-        transport='cookjohn',
+        "replace_creators",
+        transport="cookjohn",
         item_key=item_key,
         creators_before=list(was),
         creators_written=list(creators),
         cookjohn=reply,
         verification=_verify_creators(session.store, item_key, creators),
         undo_manifest=manifest,
-        undo_call=f'replace_creators({item_key!r}, {list(was)!r}, force=True)',
+        undo_call=f"replace_creators({item_key!r}, {list(was)!r}, force=True)",
         versions=info,
     )
 
@@ -701,6 +694,7 @@ def replace_creators(
 # --------------------------------------------------------------------------
 # tags — additive by default, replacement gated
 # --------------------------------------------------------------------------
+
 
 def add_tags(item_key: str, tags: list[str], *, session: WriteSession) -> dict:
     """Add tags, keeping the existing ones. No manifest: the inverse is `remove_tags`."""
@@ -716,7 +710,10 @@ def remove_tags(
 ) -> dict:
     """Remove specific tags, leaving the rest. Journalled — it destroys something."""
     return _tag_op(
-        "remove", item_key, tags, journal_dir=journal_dir,
+        "remove",
+        item_key,
+        tags,
+        journal_dir=journal_dir,
         session=session,
     )
 
@@ -737,7 +734,11 @@ def set_tags(
     not find out until the tags were gone.
     """
     return _tag_op(
-        "set", item_key, tags, force=force, journal_dir=journal_dir,
+        "set",
+        item_key,
+        tags,
+        force=force,
+        journal_dir=journal_dir,
         session=session,
     )
 
@@ -764,9 +765,9 @@ def _verify_tags(action: str, was, now, requested) -> dict:
         missing = sorted(want - now_s)
         expected = was_s | want
     elif action == "remove":
-        missing = sorted(now_s & want)          # these should be GONE
+        missing = sorted(now_s & want)  # these should be GONE
         expected = was_s - want
-    else:                                        # set
+    else:  # set
         missing = sorted(want - now_s)
         expected = want
 
@@ -804,7 +805,8 @@ def _tag_op(
     check_keys([item_key])
     if not tags:
         raise WriteBlocked(
-            Reason.NOTHING_TO_DO, f"no tags given — refusing a no-op {action}",
+            Reason.NOTHING_TO_DO,
+            f"no tags given — refusing a no-op {action}",
             {"item_key": item_key},
         )
     info = session.require("cookjohn")
@@ -816,8 +818,12 @@ def _tag_op(
             Reason.REFUSING_TO_REPLACE,
             f"this REPLACES all {len(was)} tag(s) on {item_key} rather than adding to them "
             "— use add_tags to add, or pass force=True to replace deliberately",
-            {"item_key": item_key, "current_tags": list(was), "would_become": tags,
-             "hint": "force=True or add_tags()"},
+            {
+                "item_key": item_key,
+                "current_tags": list(was),
+                "would_become": tags,
+                "hint": "force=True or add_tags()",
+            },
         )
     if action == "add" and set(tags) <= set(was):
         raise WriteBlocked(
@@ -845,15 +851,15 @@ def _tag_op(
     )
     now = session.store.item_tags([item_key])[item_key]
     return ok(
-        f'{action}_tags',
-        transport='cookjohn',
+        f"{action}_tags",
+        transport="cookjohn",
         item_key=item_key,
         tags_before=list(was),
         tags_after=list(now),
         verification=_verify_tags(action, was, now, tags),
         cookjohn=reply,
         undo_manifest=manifest,
-        undo_call=f'set_tags({item_key!r}, {list(was)!r}, force=True)',
+        undo_call=f"set_tags({item_key!r}, {list(was)!r}, force=True)",
         versions=info,
     )
 
@@ -861,6 +867,7 @@ def _tag_op(
 # --------------------------------------------------------------------------
 # notes
 # --------------------------------------------------------------------------
+
 
 def _note_preflight(action, content, parent_item_key, note_key) -> None:
     """Shape checks for a note write, before Zotero is touched."""
@@ -917,9 +924,7 @@ def _note_existing_checks(session, action, parent_item_key, note_key, journal_di
     )
 
 
-def _verify_note(
-    store: Catalogue, note_key: str | None, parent_item_key, action: str
-) -> dict:
+def _verify_note(store: Catalogue, note_key: str | None, parent_item_key, action: str) -> dict:
     """Confirm the note item exists, is a note, and hangs off the right parent.
 
     ⚠ PARTIAL, and it says so rather than implying more. The note BODY is not checked,
@@ -959,9 +964,7 @@ def _verify_note(
         verdict["disagreed"] = f"expected a note, found {state.item_type!r}"
     elif action == "create" and parent_item_key and state.parent_key != parent_item_key:
         verdict["verified"] = "unverified"
-        verdict["disagreed"] = (
-            f"expected parent {parent_item_key!r}, found {state.parent_key!r}"
-        )
+        verdict["disagreed"] = f"expected parent {parent_item_key!r}, found {state.parent_key!r}"
     return verdict
 
 
@@ -985,9 +988,7 @@ def write_note(
     """
     _note_preflight(action, content, parent_item_key, note_key)
     info = session.require("cookjohn")
-    manifest = _note_existing_checks(
-        session, action, parent_item_key, note_key, journal_dir
-    )
+    manifest = _note_existing_checks(session, action, parent_item_key, note_key, journal_dir)
 
     arguments: dict = {"action": action, "content": content}
     if parent_item_key and action == "create":
@@ -999,14 +1000,14 @@ def write_note(
     reply = session.cookjohn.call("write_note", arguments)
     key = note_key or session.cookjohn.find_key(reply)
     return ok(
-        f'write_note:{action}',
-        transport='cookjohn',
+        f"write_note:{action}",
+        transport="cookjohn",
         note_key=key,
         parent_item_key=parent_item_key,
         cookjohn=reply,
         verification=_verify_note(session.store, key, parent_item_key, action),
         undo_manifest=manifest,
-        undo_call=f"trash_items(['{key}'])" if action == 'create' and key else None,
+        undo_call=f"trash_items(['{key}'])" if action == "create" and key else None,
         versions=info,
     )
 
@@ -1139,9 +1140,7 @@ def _verify_annotation(store: Catalogue, key: str | None, parent_item_key: str) 
     }
     if state.parent_key != parent_item_key:
         verdict["verified"] = "unverified"
-        verdict["disagreed"] = (
-            f"expected parent {parent_item_key!r}, found {state.parent_key!r}"
-        )
+        verdict["disagreed"] = f"expected parent {parent_item_key!r}, found {state.parent_key!r}"
     return verdict
 
 
@@ -1184,7 +1183,10 @@ def create_annotation(
     linker >= 0.4.0.
     """
     fields = _annotation_preflight(
-        parent_item_key, annotation_type, annotation_text, annotation_color,
+        parent_item_key,
+        annotation_type,
+        annotation_text,
+        annotation_color,
         annotation_position,
     )
     info = session.require("linker")
@@ -1229,6 +1231,7 @@ def create_annotation(
 # --------------------------------------------------------------------------
 # DELETE — trash and restore, the only removal this package can express
 # --------------------------------------------------------------------------
+
 
 def _trash_verdict(disagreed: list[str]) -> dict:
     """Post-write verdict for the trash flag, which Zotero does not normalise.
@@ -1358,7 +1361,7 @@ def _trash_op(
 
     result = ok(
         op,
-        transport='linker',
+        transport="linker",
         item_keys=to_send,
         skipped=skipped,
         affected=[
@@ -1373,7 +1376,7 @@ def _trash_op(
         linker=reply,
         verification=verification,
         undo_manifest=manifest,
-        undo_call=f'{inverse}({to_send})',
+        undo_call=f"{inverse}({to_send})",
         versions=info,
     )
     if db_backup:
@@ -1406,8 +1409,13 @@ def trash_items(
     never relaxes the liveness or existence gates.
     """
     return _trash_op(
-        "trash_items", "trash-items", item_keys, want_trashed=True, force=force,
-        copy_db=copy_db, journal_dir=journal_dir,
+        "trash_items",
+        "trash-items",
+        item_keys,
+        want_trashed=True,
+        force=force,
+        copy_db=copy_db,
+        journal_dir=journal_dir,
         session=session,
     )
 
@@ -1428,7 +1436,12 @@ def restore_items(
     problem.
     """
     return _trash_op(
-        "restore_items", "restore-items", item_keys, want_trashed=False, force=force,
-        copy_db=copy_db, journal_dir=journal_dir,
+        "restore_items",
+        "restore-items",
+        item_keys,
+        want_trashed=False,
+        force=force,
+        copy_db=copy_db,
+        journal_dir=journal_dir,
         session=session,
     )

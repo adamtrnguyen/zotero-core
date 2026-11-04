@@ -36,6 +36,7 @@ from .conftest import PING, FakeLinker, StubProbe
 # check_keys — shape. Cheap, and the only gate that needs no I/O.
 # --------------------------------------------------------------------------
 
+
 def test_empty_batch_is_refused():
     with pytest.raises(WriteBlocked) as e:
         check_keys([])
@@ -71,6 +72,7 @@ def test_the_observed_key_alphabet_is_accepted():
 # --------------------------------------------------------------------------
 # liveness — the precondition that INVERTS relative to Calibre
 # --------------------------------------------------------------------------
+
 
 def _stub_urlopen(monkeypatch, payload: dict | None = None, error: Exception | None = None):
     class _Resp:
@@ -203,6 +205,7 @@ def test_liveness_is_checked_before_anything_is_sent(zotero, zotero_down, sessio
 # as `calibredb add` exiting 0 having added nothing.
 # --------------------------------------------------------------------------
 
+
 def test_one_unknown_key_refuses_the_whole_batch(zotero, session):
     zotero.add("ABCD2345", "Real Paper")
     zotero.add("WXYZ6789", "Also Real")
@@ -237,6 +240,7 @@ def test_a_group_library_key_does_not_resolve(zotero, linker, session):
 # --------------------------------------------------------------------------
 # no-op gates — a write that changes nothing must not report success
 # --------------------------------------------------------------------------
+
 
 def test_trashing_an_already_trashed_item_is_refused(zotero, session):
     """calibre-core refuses a removal that removes nothing for the same reason: the
@@ -294,6 +298,7 @@ def test_a_batch_that_is_entirely_a_noop_is_refused_even_with_force(zotero, link
 # the write, end to end against the fixture
 # --------------------------------------------------------------------------
 
+
 def test_trash_then_restore_round_trips(zotero, session):
     """The property that makes trash safe to offer at all."""
     zotero.add("ABCD2345", "A Paper")
@@ -348,9 +353,7 @@ def test_a_trash_does_not_require_the_cookjohn_plugin(zotero, session):
         def call(self, tool, arguments):
             raise AssertionError("trash must not call cookjohn")
 
-    out = trash_items(
-        ["ABCD2345"], session=replace(session, cookjohn=Exploding("http://unused"))
-    )
+    out = trash_items(["ABCD2345"], session=replace(session, cookjohn=Exploding("http://unused")))
     assert out["transport"] == "linker"
     assert "cookjohn" not in out["versions"]
 
@@ -358,6 +361,7 @@ def test_a_trash_does_not_require_the_cookjohn_plugin(zotero, session):
 # --------------------------------------------------------------------------
 # attachments and notes — the question nobody had run
 # --------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("item_type", ["attachment", "note", "annotation"])
 def test_child_items_are_trashable_by_key(zotero, item_type, session):
@@ -394,6 +398,7 @@ def test_a_parents_children_are_recorded_before_it_is_trashed(zotero, session):
 # the undo manifest — this path's translation of "back up before mutating"
 # --------------------------------------------------------------------------
 
+
 def test_the_manifest_is_written_before_the_post(zotero, tmp_path, session):
     """If it were written afterwards, a write that crashed mid-batch would leave no
     record of what to undo — which is the one moment the record is needed."""
@@ -417,9 +422,7 @@ def test_the_manifest_is_written_before_the_post(zotero, tmp_path, session):
 def test_the_manifest_records_the_prestate_and_the_inverse(zotero, tmp_path, session):
     zotero.add("ABCD2345", "A Paper")
     zotero.add_to_collection("ABCD2345", zotero.add_collection("Reading"))
-    out = trash_items(
-        ["ABCD2345"], journal_dir=str(tmp_path / "j"), session=session
-    )
+    out = trash_items(["ABCD2345"], journal_dir=str(tmp_path / "j"), session=session)
     manifest = json.loads(Path(out["undo_manifest"]).read_text())
     assert manifest["op"] == "trash_items"
     # A literal call, not prose. "restore it in the GUI" is not an undo; something a
@@ -456,9 +459,7 @@ def test_the_329mb_database_copy_is_off_by_default(zotero, tmp_path, session):
     it. Spending another ~330 MB per trash — whose undo is `restore_items` — is not
     a default anyone chose; it is available when asked for."""
     zotero.add("ABCD2345", "A Paper")
-    out = trash_items(
-        ["ABCD2345"], journal_dir=str(tmp_path / "j"), session=session
-    )
+    out = trash_items(["ABCD2345"], journal_dir=str(tmp_path / "j"), session=session)
     assert "database_backup" not in out
     assert list((tmp_path / "j").glob("zotero.sqlite.backup-*")) == []
 
@@ -499,6 +500,7 @@ def test_the_database_copy_works_without_being_told_where_to_put_it(zotero, sess
 # --------------------------------------------------------------------------
 # post-write verification — a 200 is not evidence
 # --------------------------------------------------------------------------
+
 
 def test_a_write_that_did_not_land_is_caught(zotero, session):
     """The plugin reports ok:true; the database disagrees. calibre-core learned the
@@ -546,6 +548,7 @@ def test_the_plugins_own_missing_list_is_treated_as_a_partial_apply(zotero, sess
 # --------------------------------------------------------------------------
 # the error contract, and what is deliberately absent
 # --------------------------------------------------------------------------
+
 
 def test_write_blocked_serialises_for_an_mcp_layer():
     """`code` is the stable field. An MCP tool that has to react differently to
@@ -607,7 +610,12 @@ def test_the_write_modules_issue_no_sql():
     import zotero_core.infrastructure.transports.linker as linker_mod
 
     for module in (
-        writes_mod, collections_mod, linker_mod, cookjohn_mod, liveness_mod, journal_mod
+        writes_mod,
+        collections_mod,
+        linker_mod,
+        cookjohn_mod,
+        liveness_mod,
+        journal_mod,
     ):
         tree = ast.parse(Path(module.__file__).read_text())
         for node in ast.walk(tree):
@@ -618,13 +626,16 @@ def test_the_write_modules_issue_no_sql():
                 assert node.module != "sqlite3", f"{module.__name__} imports from sqlite3"
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                 assert node.func.attr not in (
-                    "execute", "executescript", "executemany",
+                    "execute",
+                    "executescript",
+                    "executemany",
                 ), f"{module.__name__} calls .{node.func.attr}()"
 
 
 # --------------------------------------------------------------------------
 # the fixture itself — if this drifts, every test above is meaningless
 # --------------------------------------------------------------------------
+
 
 def test_the_fixture_stores_trash_the_way_zotero_does(zotero):
     """Zotero has no `deleted` column on `items`; the trash is a row's presence in

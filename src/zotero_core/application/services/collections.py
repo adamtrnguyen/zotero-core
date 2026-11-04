@@ -132,8 +132,8 @@ def create_collection(
             {"reply": reply},
         )
     return ok(
-        'create_collection',
-        transport='cookjohn',
+        "create_collection",
+        transport="cookjohn",
         collection_key=key,
         name=name,
         parent_collection=parent_collection,
@@ -141,7 +141,7 @@ def create_collection(
         verification=_verify_collection(
             session.collections, key, name=name, parent_key=parent_collection
         ),
-        undo_call=f'delete_collection({key!r})',
+        undo_call=f"delete_collection({key!r})",
         versions=info,
     )
 
@@ -217,10 +217,10 @@ def update_collection(
         arguments["parentCollection"] = parent_collection
     reply = session.cookjohn.call("update_collection", arguments)
     return ok(
-        'update_collection',
-        transport='cookjohn',
+        "update_collection",
+        transport="cookjohn",
         collection_key=collection_key,
-        before={'name': before.get('name') or before.get('collectionName')},
+        before={"name": before.get("name") or before.get("collectionName")},
         name=name,
         parent_collection=parent_collection,
         cookjohn=reply,
@@ -385,8 +385,8 @@ def delete_collection(
         arguments["deleteItems"] = True
     reply = session.cookjohn.call("delete_collection", arguments)
     return ok(
-        'delete_collection',
-        transport='cookjohn',
+        "delete_collection",
+        transport="cookjohn",
         collection_key=collection_key,
         name=name,
         members_at_deletion=members,
@@ -417,8 +417,8 @@ def add_items_to_collection(
         "add_items_to_collection", {"collectionKey": collection_key, "itemKeys": keys}
     )
     return ok(
-        'add_items_to_collection',
-        transport='cookjohn',
+        "add_items_to_collection",
+        transport="cookjohn",
         collection_key=collection_key,
         item_keys=keys,
         # Informational, not a refusal: these were no-ops. Reported so a caller can tell
@@ -426,7 +426,7 @@ def add_items_to_collection(
         already_present=sorted(set(keys) & before_members),
         cookjohn=reply,
         verification=_verify_membership(session.collections, collection_key, keys, present=True),
-        undo_call=f'remove_items_from_collection({collection_key!r}, {keys!r})',
+        undo_call=f"remove_items_from_collection({collection_key!r}, {keys!r})",
         versions=info,
     )
 
@@ -463,8 +463,8 @@ def remove_items_from_collection(
         "remove_items_from_collection", {"collectionKey": collection_key, "itemKeys": keys}
     )
     return ok(
-        'remove_items_from_collection',
-        transport='cookjohn',
+        "remove_items_from_collection",
+        transport="cookjohn",
         collection_key=collection_key,
         item_keys=keys,
         # Informational: these were never in the collection, so removing them changed
@@ -474,7 +474,7 @@ def remove_items_from_collection(
         cookjohn=reply,
         verification=_verify_membership(session.collections, collection_key, keys, present=False),
         undo_manifest=manifest,
-        undo_call=f'add_items_to_collection({collection_key!r}, {keys!r})',
+        undo_call=f"add_items_to_collection({collection_key!r}, {keys!r})",
         versions=info,
     )
 
@@ -515,6 +515,7 @@ def move_items_between_collections(
     source.
     """
     from zotero_core.application.services.verbs import check_keys, require_items
+
     _check_collection_key(from_collection_key)
     _check_collection_key(to_collection_key)
     if from_collection_key == to_collection_key:
@@ -606,13 +607,13 @@ def move_items_between_collections(
     verified = not still_in_source and not missing_from_target
 
     return ok(
-        'move_items_between_collections',
-        transport='cookjohn',
+        "move_items_between_collections",
+        transport="cookjohn",
         from_collection_key=from_collection_key,
         to_collection_key=to_collection_key,
         item_keys=keys,
         not_in_source=absent,
-        cookjohn={'added': added, 'removed': removed},
+        cookjohn={"added": added, "removed": removed},
         verification={
             "verified": verified,
             "still_in_source": still_in_source,

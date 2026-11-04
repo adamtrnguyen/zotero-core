@@ -28,9 +28,9 @@ class BetterBibTeXClient:
         return None
 
     def _call(self, method: str, params: list) -> object | None:
-        body = json.dumps(
-            {"jsonrpc": "2.0", "method": method, "params": params, "id": 1}
-        ).encode("utf-8")
+        body = json.dumps({"jsonrpc": "2.0", "method": method, "params": params, "id": 1}).encode(
+            "utf-8"
+        )
         request = urllib.request.Request(
             self.url,
             data=body,

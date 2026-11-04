@@ -63,8 +63,7 @@ _INSTRUCTION_LINES: tuple[tuple[str, bool], ...] = (
         True,
     ),
     (
-        "Writes need Zotero desktop running: zotero_write_preflight reports which "
-        "plugin is down.",
+        "Writes need Zotero desktop running: zotero_write_preflight reports which plugin is down.",
         True,
     ),
     (
@@ -131,9 +130,7 @@ def build(*, read_only: bool) -> tuple[list[ToolSpec], CallTool]:
 
 async def main(*, read_only: bool = False) -> None:
     tools, call_tool = build(read_only=read_only)
-    await run_stdio(
-        SERVER_NAME, tools, call_tool, instructions=instructions(read_only=read_only)
-    )
+    await run_stdio(SERVER_NAME, tools, call_tool, instructions=instructions(read_only=read_only))
 
 
 def run() -> None:

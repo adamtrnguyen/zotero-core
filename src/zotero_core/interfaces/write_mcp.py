@@ -400,8 +400,7 @@ TOOLS: tuple[_ToolSpec, ...] = (
             "parent_item_key": {
                 "type": "string",
                 "description": (
-                    "Attachment key (8 uppercase alphanumerics), not the "
-                    "bibliographic item."
+                    "Attachment key (8 uppercase alphanumerics), not the bibliographic item."
                 ),
             },
             "annotation_position": {
@@ -721,7 +720,9 @@ def call_writes(
     # required argument now, so there is no module global for a test to rewrite and no
     # `or CookjohnClient()` hiding inside the application layer.
     return _dispatch(
-        _BY_NAME, name, arguments,
+        _BY_NAME,
+        name,
+        arguments,
         extra={"session": session if session is not None else build_write_session()},
     )
 

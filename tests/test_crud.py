@@ -66,10 +66,21 @@ def _kw(session):
 # --------------------------------------------------------------------------
 
 VERBS = [
-    create_item, link_attachment, import_attachment, write_note, update_metadata,
-    replace_creators, add_tags, remove_tags, set_tags, create_collection,
-    update_collection, delete_collection, add_items_to_collection,
-    remove_items_from_collection, trash_items,
+    create_item,
+    link_attachment,
+    import_attachment,
+    write_note,
+    update_metadata,
+    replace_creators,
+    add_tags,
+    remove_tags,
+    set_tags,
+    create_collection,
+    update_collection,
+    delete_collection,
+    add_items_to_collection,
+    remove_items_from_collection,
+    trash_items,
 ]
 
 
@@ -231,6 +242,7 @@ def test_each_verb_reports_which_transport_served_it(zotero, tmp_path, session):
 # CREATE
 # --------------------------------------------------------------------------
 
+
 def test_create_demands_a_title(cookjohn, session):
     """cookjohn will create a titleless item quite happily, and it is then
     near-unfindable in the GUI — the analogue of calibre-core's mandatory title rule."""
@@ -277,12 +289,13 @@ def test_create_blocks_on_the_calibre_uuid_stamp(zotero, session):
     Calibre side; the two disagree exactly when a push half-succeeded. 769 items in the
     live library carry the stamp."""
     uuid = "0f4b1c22-3d3e-4a55-9b77-1c2d3e4f5a6b"
-    zotero.add("ABCD2345", "Some Book", item_type="book",
-               fields={"extra": f"calibre-uuid: {uuid}"})
+    zotero.add("ABCD2345", "Some Book", item_type="book", fields={"extra": f"calibre-uuid: {uuid}"})
     with pytest.raises(WriteBlocked) as e:
         create_item(
-            "book", {"title": "Same Book, Different Title"},
-            calibre_uuid=uuid, **_kw(session),
+            "book",
+            {"title": "Same Book, Different Title"},
+            calibre_uuid=uuid,
+            **_kw(session),
         )
     assert e.value.code == Reason.DUPLICATE_ITEM
     assert [s["signal"] for s in e.value.detail["duplicate_check"]["signals"]] == ["calibre-uuid"]
@@ -291,8 +304,11 @@ def test_create_blocks_on_the_calibre_uuid_stamp(zotero, session):
 def test_a_same_title_and_author_only_warns_and_still_creates(zotero, session):
     """Two editions and a preprint/published pair both look like this, and both are
     legitimately two items. So it is recorded in the result, not refused."""
-    zotero.add("ABCD2345", "Systems Thinking, Systems Practice",
-               creators=[{"creatorType": "author", "lastName": "Checkland"}])
+    zotero.add(
+        "ABCD2345",
+        "Systems Thinking, Systems Practice",
+        creators=[{"creatorType": "author", "lastName": "Checkland"}],
+    )
     out = create_item(
         "book",
         {"title": "Systems Thinking, Systems Practice"},
@@ -307,7 +323,8 @@ def test_a_different_author_with_the_same_title_is_not_a_duplicate(zotero):
     """Lang vs Artin 'Algebra' are different books."""
     zotero.add("ABCD2345", "Algebra", creators=[{"creatorType": "author", "lastName": "Lang"}])
     result = check_duplicate(
-        zotero.store(), title="Algebra",
+        zotero.store(),
+        title="Algebra",
         creators=[{"creatorType": "author", "lastName": "Artin"}],
     )
     assert result["verdict"] == "ok"
@@ -319,7 +336,8 @@ def test_a_trashed_duplicate_does_not_block(zotero, session):
     still reported so they can tell the difference."""
     zotero.add("ABCD2345", "On Its Way Out", trashed=True, fields={"DOI": "10.1/x"})
     out = create_item(
-        "journalArticle", {"title": "Fresh Copy", "DOI": "10.1/x"},
+        "journalArticle",
+        {"title": "Fresh Copy", "DOI": "10.1/x"},
         **_kw(session),
     )
     assert out["ok"] is True
@@ -330,8 +348,10 @@ def test_a_trashed_duplicate_does_not_block(zotero, session):
 def test_force_creates_through_a_block(zotero, session):
     zotero.add("ABCD2345", "Already Here", fields={"DOI": "10.1/x"})
     out = create_item(
-        "journalArticle", {"title": "Deliberate Second Copy", "DOI": "10.1/x"},
-        force=True, **_kw(session),
+        "journalArticle",
+        {"title": "Deliberate Second Copy", "DOI": "10.1/x"},
+        force=True,
+        **_kw(session),
     )
     assert out["ok"] is True
     assert out["duplicate_check"]["verdict"] == "block"
@@ -369,9 +389,7 @@ def test_an_import_that_returns_no_key_is_also_a_failure(zotero, tmp_path, sessi
 
     silent = FakeCookjohn(zotero, no_key=True)
     with pytest.raises(WriteBlocked) as e:
-        import_attachment(
-            "PARENT01", str(pdf), session=replace(session, cookjohn=silent)
-        )
+        import_attachment("PARENT01", str(pdf), session=replace(session, cookjohn=silent))
     assert e.value.code == Reason.COOKJOHN_RETURNED_NO_KEY
 
 
@@ -389,9 +407,7 @@ def test_create_can_file_the_new_item_into_a_collection(zotero, session):
     through cookjohn and filed through cookjohn, but a linked attachment in the same
     flow would go through the linker without the signature changing."""
     collection = zotero.add_collection("calibre")
-    out = create_item(
-        "book", {"title": "A Book"}, collection_key=collection, **_kw(session)
-    )
+    out = create_item("book", {"title": "A Book"}, collection_key=collection, **_kw(session))
     assert out["collection"]["ok"] is True
     assert out["item_key"] in zotero.collection_members(collection)
 
@@ -399,6 +415,7 @@ def test_create_can_file_the_new_item_into_a_collection(zotero, session):
 # --------------------------------------------------------------------------
 # attachments — link vs import is a lasting choice, so it is two verbs
 # --------------------------------------------------------------------------
+
 
 def test_a_relative_path_is_refused(zotero, linker, session):
     """Zotero resolves a relative path against its OWN working directory, so this
@@ -411,9 +428,7 @@ def test_a_relative_path_is_refused(zotero, linker, session):
     assert linker.posts == []
 
 
-def test_a_missing_file_is_refused_before_the_link_is_made(
-    zotero, linker, tmp_path, session
-):
+def test_a_missing_file_is_refused_before_the_link_is_made(zotero, linker, tmp_path, session):
     zotero.add("PARENT12", "The Parent", item_type="book")
     with pytest.raises(WriteBlocked) as e:
         link_attachment("PARENT12", str(tmp_path / "absent.pdf"), **_kw(session))
@@ -441,12 +456,15 @@ def test_link_and_import_use_different_transports(zotero, tmp_path, session):
 # UPDATE — metadata
 # --------------------------------------------------------------------------
 
+
 def test_an_update_journals_the_values_it_overwrites(zotero, tmp_path, session):
     """The only record that an overwrite destroyed anything."""
     zotero.add("ABCD2345", "Old Title", fields={"date": "2019"})
     out = update_metadata(
-        "ABCD2345", {"date": "2024"},
-        journal_dir=str(tmp_path / "j"), **_kw(session),
+        "ABCD2345",
+        {"date": "2024"},
+        journal_dir=str(tmp_path / "j"),
+        **_kw(session),
     )
     assert out["fields_overwritten"] == {"date": "2019"}
     manifest = json.loads(Path(out["undo_manifest"]).read_text())
@@ -454,9 +472,7 @@ def test_an_update_journals_the_values_it_overwrites(zotero, tmp_path, session):
     assert manifest["inverse"] == "update_metadata('ABCD2345', {'date': '2019'})"
 
 
-def test_a_field_that_did_not_exist_is_not_reported_as_having_been_empty(session, 
-    zotero, tmp_path
-):
+def test_a_field_that_did_not_exist_is_not_reported_as_having_been_empty(session, zotero, tmp_path):
     """A field that DID NOT EXIST is not a field holding "". Recording the absent ones
     as `""` and handing that back as the undo would write empty strings instead of
     removing the fields — an inverse leaving the item different from how it started.
@@ -467,8 +483,10 @@ def test_a_field_that_did_not_exist_is_not_reported_as_having_been_empty(session
     and the result says so instead of offering a wrong one."""
     zotero.add("ABCD2345", "A Paper")  # no date, no language
     out = update_metadata(
-        "ABCD2345", {"date": "2026", "language": "en"},
-        journal_dir=str(tmp_path / "j"), **_kw(session),
+        "ABCD2345",
+        {"date": "2026", "language": "en"},
+        journal_dir=str(tmp_path / "j"),
+        **_kw(session),
     )
     assert out["fields_overwritten"] == {}
     assert out["fields_added"] == ["date", "language"]
@@ -478,9 +496,7 @@ def test_a_field_that_did_not_exist_is_not_reported_as_having_been_empty(session
     assert manifest["inverse"] is None
 
 
-def test_zoteros_own_normalisation_is_not_reported_as_a_failed_write(session, 
-    zotero, tmp_path
-):
+def test_zoteros_own_normalisation_is_not_reported_as_a_failed_write(session, zotero, tmp_path):
     """Strict equality on field values produces FALSE alarms. Observed live on
     2026-08-13: writing `date="2026"` came back stored as `"2026-00-00 2026"`, because
     Zotero parses the date field into its own multipart form. The first version of this
@@ -500,7 +516,9 @@ def test_zoteros_own_normalisation_is_not_reported_as_a_failed_write(session,
 
     zotero.add("ABCD2345", "A Paper")
     out = update_metadata(
-        "ABCD2345", {"date": "2026"}, journal_dir=str(tmp_path / "j"),
+        "ABCD2345",
+        {"date": "2026"},
+        journal_dir=str(tmp_path / "j"),
         session=replace(session, cookjohn=Normalising(zotero)),
     )
     assert out["verification"]["verified"] is True
@@ -508,21 +526,21 @@ def test_zoteros_own_normalisation_is_not_reported_as_a_failed_write(session,
     assert "disagreed" not in out["verification"]
 
 
-def test_a_field_with_no_trace_of_the_write_is_still_unverified(session, 
-    zotero, tmp_path
-):
+def test_a_field_with_no_trace_of_the_write_is_still_unverified(session, zotero, tmp_path):
     """The normalisation tolerance must not swallow a write that did not land at all."""
     zotero.add("ABCD2345", "A Paper", fields={"date": "1999"})
     out = update_metadata(
-        "ABCD2345", {"date": "2026"}, journal_dir=str(tmp_path / "j"),
+        "ABCD2345",
+        {"date": "2026"},
+        journal_dir=str(tmp_path / "j"),
         session=replace(session, cookjohn=FakeCookjohn(zotero, apply=False)),
     )
     assert out["verification"]["verified"] == "unverified"
     assert out["verification"]["disagreed"] == ["date"]
 
 
-def test_a_venue_write_remapped_onto_the_types_own_field_is_verified_not_disagreed(session, 
-    zotero, tmp_path
+def test_a_venue_write_remapped_onto_the_types_own_field_is_verified_not_disagreed(
+    session, zotero, tmp_path
 ):
     """Zotero maps a BASE field name onto the field the item type actually carries, and
     cookjohn writes through that mapping: `publicationTitle` on a conferencePaper is
@@ -536,13 +554,13 @@ def test_a_venue_write_remapped_onto_the_types_own_field_is_verified_not_disagre
     the field later needs to know."""
     zotero.add("ABCD2345", "A Paper", item_type="conferencePaper")
     out = update_metadata(
-        "ABCD2345", {"publicationTitle": "NeurIPS 2026"},
-        journal_dir=str(tmp_path / "j"), **_kw(session),
+        "ABCD2345",
+        {"publicationTitle": "NeurIPS 2026"},
+        journal_dir=str(tmp_path / "j"),
+        **_kw(session),
     )
     assert out["verification"]["verified"] is True
-    assert out["verification"]["mapped_to_type_field"] == {
-        "publicationTitle": "proceedingsTitle"
-    }
+    assert out["verification"]["mapped_to_type_field"] == {"publicationTitle": "proceedingsTitle"}
     assert "disagreed" not in out["verification"]
     # The value really is under the mapped name and NOT under the written one.
     stored = zotero.fields_of("ABCD2345")
@@ -550,46 +568,45 @@ def test_a_venue_write_remapped_onto_the_types_own_field_is_verified_not_disagre
     assert "publicationTitle" not in stored
 
 
-def test_the_remap_is_read_from_the_database_not_assumed_per_type(session, 
-    zotero, tmp_path
-):
+def test_the_remap_is_read_from_the_database_not_assumed_per_type(session, zotero, tmp_path):
     """The same base field maps to a DIFFERENT field per item type — bookTitle on a
     bookSection, proceedingsTitle on a conferencePaper — so a hard-coded pair would be
     right for one type and wrong for the other nine. `baseFieldMappingsCombined` is the
     database's own data and moves with Zotero's schema version."""
     zotero.add("ABCD2345", "A Chapter", item_type="bookSection")
     out = update_metadata(
-        "ABCD2345", {"publicationTitle": "A Big Handbook"},
-        journal_dir=str(tmp_path / "j"), **_kw(session),
+        "ABCD2345",
+        {"publicationTitle": "A Big Handbook"},
+        journal_dir=str(tmp_path / "j"),
+        **_kw(session),
     )
     assert out["verification"]["mapped_to_type_field"] == {"publicationTitle": "bookTitle"}
     assert zotero.fields_of("ABCD2345")["bookTitle"] == "A Big Handbook"
 
 
-def test_a_type_that_maps_nothing_still_compares_names_literally(session, 
-    zotero, tmp_path
-):
+def test_a_type_that_maps_nothing_still_compares_names_literally(session, zotero, tmp_path):
     """A journalArticle stores `publicationTitle` under that very name. The mapping
     lookup must not invent a rename where the type has none."""
     zotero.add("ABCD2345", "A Paper", item_type="journalArticle")
     out = update_metadata(
-        "ABCD2345", {"publicationTitle": "JMLR"},
-        journal_dir=str(tmp_path / "j"), **_kw(session),
+        "ABCD2345",
+        {"publicationTitle": "JMLR"},
+        journal_dir=str(tmp_path / "j"),
+        **_kw(session),
     )
     assert out["verification"]["verified"] is True
     assert "mapped_to_type_field" not in out["verification"]
     assert zotero.fields_of("ABCD2345")["publicationTitle"] == "JMLR"
 
 
-def test_the_remap_does_not_rescue_a_write_that_never_landed(
-    zotero, tmp_path, session
-):
+def test_the_remap_does_not_rescue_a_write_that_never_landed(zotero, tmp_path, session):
     """The mapping tolerance must not swallow a failed write the way strict equality must
     not produce false alarms. A conferencePaper whose plugin applied nothing is still
     `disagreed`, and the field is not reported as merely relocated."""
     zotero.add("ABCD2345", "A Paper", item_type="conferencePaper")
     out = update_metadata(
-        "ABCD2345", {"publicationTitle": "NeurIPS 2026"},
+        "ABCD2345",
+        {"publicationTitle": "NeurIPS 2026"},
         journal_dir=str(tmp_path / "j"),
         session=replace(session, cookjohn=FakeCookjohn(zotero, apply=False)),
     )
@@ -601,8 +618,10 @@ def test_the_remap_does_not_rescue_a_write_that_never_landed(
 def test_an_update_merges_and_leaves_other_fields_alone(zotero, tmp_path, session):
     zotero.add("ABCD2345", "A Paper", fields={"date": "2019", "publisher": "ACM"})
     update_metadata(
-        "ABCD2345", {"date": "2024"},
-        journal_dir=str(tmp_path / "j"), **_kw(session),
+        "ABCD2345",
+        {"date": "2024"},
+        journal_dir=str(tmp_path / "j"),
+        **_kw(session),
     )
     after = zotero.fields_of("ABCD2345")
     assert after["date"] == "2024"
@@ -611,8 +630,8 @@ def test_an_update_merges_and_leaves_other_fields_alone(zotero, tmp_path, sessio
 
 
 @pytest.mark.parametrize("item_type", ["note", "attachment", "annotation"])
-def test_metadata_is_refused_on_items_that_have_none(session, 
-    zotero, cookjohn, tmp_path, item_type
+def test_metadata_is_refused_on_items_that_have_none(
+    session, zotero, cookjohn, tmp_path, item_type
 ):
     """cookjohn's own description says metadata "only works on regular items". Catching
     it here turns a plugin-side failure into a precondition that names the actual type."""
@@ -620,8 +639,10 @@ def test_metadata_is_refused_on_items_that_have_none(session,
     zotero.add("CHILD123", "The Child", item_type=item_type, parent="PARENT12")
     with pytest.raises(WriteBlocked) as e:
         update_metadata(
-            "CHILD123", {"date": "2024"},
-            journal_dir=str(tmp_path / "j"), **_kw(session),
+            "CHILD123",
+            {"date": "2024"},
+            journal_dir=str(tmp_path / "j"),
+            **_kw(session),
         )
     assert e.value.code == Reason.WRONG_ITEM_TYPE
     assert e.value.detail["item_type"] == item_type
@@ -632,8 +653,10 @@ def test_an_update_that_changes_nothing_is_refused(zotero, cookjohn, tmp_path, s
     zotero.add("ABCD2345", "A Paper", fields={"date": "2024"})
     with pytest.raises(WriteBlocked) as e:
         update_metadata(
-            "ABCD2345", {"date": "2024"},
-            journal_dir=str(tmp_path / "j"), **_kw(session),
+            "ABCD2345",
+            {"date": "2024"},
+            journal_dir=str(tmp_path / "j"),
+            **_kw(session),
         )
     assert e.value.code == Reason.NOTHING_TO_DO
     assert cookjohn.calls == []
@@ -647,11 +670,13 @@ def test_an_update_that_changes_nothing_is_refused(zotero, cookjohn, tmp_path, s
 # Zotero item — and nothing in the output announced it.
 # --------------------------------------------------------------------------
 
-def test_replacing_creators_refuses_without_force_and_shows_what_is_there(session, 
-    zotero, cookjohn, tmp_path
+
+def test_replacing_creators_refuses_without_force_and_shows_what_is_there(
+    session, zotero, cookjohn, tmp_path
 ):
     zotero.add(
-        "ABCD2345", "A Paper",
+        "ABCD2345",
+        "A Paper",
         creators=[
             {"creatorType": "author", "firstName": "Ada", "lastName": "Lovelace"},
             {"creatorType": "author", "firstName": "Alan", "lastName": "Turing"},
@@ -659,8 +684,10 @@ def test_replacing_creators_refuses_without_force_and_shows_what_is_there(sessio
     )
     with pytest.raises(WriteBlocked) as e:
         replace_creators(
-            "ABCD2345", [{"creatorType": "author", "lastName": "Hopper"}],
-            journal_dir=str(tmp_path / "j"), **_kw(session),
+            "ABCD2345",
+            [{"creatorType": "author", "lastName": "Hopper"}],
+            journal_dir=str(tmp_path / "j"),
+            **_kw(session),
         )
     assert e.value.code == Reason.REFUSING_TO_REPLACE
     # Naming what would be lost is the whole point of refusing.
@@ -668,14 +695,14 @@ def test_replacing_creators_refuses_without_force_and_shows_what_is_there(sessio
     assert cookjohn.calls == []
 
 
-def test_replacing_creators_with_force_journals_the_previous_list(session, 
-    zotero, tmp_path
-):
-    zotero.add("ABCD2345", "A Paper",
-               creators=[{"creatorType": "author", "lastName": "Lovelace"}])
+def test_replacing_creators_with_force_journals_the_previous_list(session, zotero, tmp_path):
+    zotero.add("ABCD2345", "A Paper", creators=[{"creatorType": "author", "lastName": "Lovelace"}])
     out = replace_creators(
-        "ABCD2345", [{"creatorType": "author", "lastName": "Hopper"}],
-        force=True, journal_dir=str(tmp_path / "j"), **_kw(session),
+        "ABCD2345",
+        [{"creatorType": "author", "lastName": "Hopper"}],
+        force=True,
+        journal_dir=str(tmp_path / "j"),
+        **_kw(session),
     )
     assert [c["lastName"] for c in out["creators_before"]] == ["Lovelace"]
     manifest = json.loads(Path(out["undo_manifest"]).read_text())
@@ -685,7 +712,8 @@ def test_replacing_creators_with_force_journals_the_previous_list(session,
 
 def test_creator_order_is_preserved_because_first_author_is_not_arbitrary(zotero):
     zotero.add(
-        "ABCD2345", "A Paper",
+        "ABCD2345",
+        "A Paper",
         creators=[
             {"creatorType": "author", "lastName": "First"},
             {"creatorType": "author", "lastName": "Second"},
@@ -708,15 +736,13 @@ def test_an_organisation_creator_comes_back_as_a_single_name(zotero):
 # tags — additive by default, replacement gated
 # --------------------------------------------------------------------------
 
-def test_set_tags_refuses_without_force_and_points_at_add_tags(session, 
-    zotero, tmp_path
-):
+
+def test_set_tags_refuses_without_force_and_points_at_add_tags(session, zotero, tmp_path):
     """Tags in this library are curated knowledge no online source carries. A caller who
     wanted to ADD one and reached for 'set' would not find out until they were gone."""
     zotero.add("ABCD2345", "A Paper", tags=["optics", "to-read", "graphics"])
     with pytest.raises(WriteBlocked) as e:
-        set_tags("ABCD2345", ["new-tag"],
-                 journal_dir=str(tmp_path / "j"), **_kw(session))
+        set_tags("ABCD2345", ["new-tag"], journal_dir=str(tmp_path / "j"), **_kw(session))
     assert e.value.code == Reason.REFUSING_TO_REPLACE
     assert e.value.detail["current_tags"] == ["graphics", "optics", "to-read"]
     assert "add_tags" in e.value.detail["hint"]
@@ -730,9 +756,7 @@ def test_add_tags_keeps_the_existing_ones(zotero, session):
     assert zotero.tags_of("ABCD2345") == ["optics", "to-read"]
 
 
-def test_add_tags_needs_no_manifest_because_its_inverse_is_expressible(session, 
-    zotero
-):
+def test_add_tags_needs_no_manifest_because_its_inverse_is_expressible(session, zotero):
     """A pure addition is undone by `remove_tags`, which the caller can already say.
     Journalling it would file noise and train people to skim manifests."""
     zotero.add("ABCD2345", "A Paper", tags=["optics"])
@@ -740,23 +764,19 @@ def test_add_tags_needs_no_manifest_because_its_inverse_is_expressible(session,
     assert out["undo_manifest"] is None
 
 
-def test_set_tags_with_force_journals_the_whole_previous_list(session, 
-    zotero, tmp_path
-):
+def test_set_tags_with_force_journals_the_whole_previous_list(session, zotero, tmp_path):
     zotero.add("ABCD2345", "A Paper", tags=["optics", "to-read"])
-    out = set_tags("ABCD2345", ["only-this"], force=True,
-                   journal_dir=str(tmp_path / "j"), **_kw(session))
+    out = set_tags(
+        "ABCD2345", ["only-this"], force=True, journal_dir=str(tmp_path / "j"), **_kw(session)
+    )
     manifest = json.loads(Path(out["undo_manifest"]).read_text())
     assert manifest["before"]["tags"] == ["optics", "to-read"]
     assert zotero.tags_of("ABCD2345") == ["only-this"]
 
 
-def test_removing_tags_journals_and_removes_only_the_named_ones(session, 
-    zotero, tmp_path
-):
+def test_removing_tags_journals_and_removes_only_the_named_ones(session, zotero, tmp_path):
     zotero.add("ABCD2345", "A Paper", tags=["optics", "to-read", "graphics"])
-    out = remove_tags("ABCD2345", ["to-read"],
-                      journal_dir=str(tmp_path / "j"), **_kw(session))
+    out = remove_tags("ABCD2345", ["to-read"], journal_dir=str(tmp_path / "j"), **_kw(session))
     assert zotero.tags_of("ABCD2345") == ["graphics", "optics"]
     assert Path(out["undo_manifest"]).exists()
 
@@ -772,14 +792,14 @@ def test_adding_a_tag_the_item_already_has_is_refused(zotero, cookjohn, session)
 def test_removing_a_tag_the_item_does_not_have_is_refused(zotero, tmp_path, session):
     zotero.add("ABCD2345", "A Paper", tags=["optics"])
     with pytest.raises(WriteBlocked) as e:
-        remove_tags("ABCD2345", ["absent"],
-                    journal_dir=str(tmp_path / "j"), **_kw(session))
+        remove_tags("ABCD2345", ["absent"], journal_dir=str(tmp_path / "j"), **_kw(session))
     assert e.value.code == Reason.NOTHING_TO_DO
 
 
 # --------------------------------------------------------------------------
 # notes
 # --------------------------------------------------------------------------
+
 
 def test_a_child_note_is_created_under_its_parent(zotero, session):
     zotero.add("PARENT12", "The Parent", item_type="book")
@@ -797,8 +817,13 @@ def test_updating_a_note_requires_its_key(session):
 def test_a_note_update_refuses_a_key_that_is_not_a_note(zotero, tmp_path, session):
     zotero.add("ABCD2345", "Not A Note")
     with pytest.raises(WriteBlocked) as e:
-        write_note("New body", action="update", note_key="ABCD2345",
-                   journal_dir=str(tmp_path / "j"), **_kw(session))
+        write_note(
+            "New body",
+            action="update",
+            note_key="ABCD2345",
+            journal_dir=str(tmp_path / "j"),
+            **_kw(session),
+        )
     assert e.value.code == Reason.WRONG_ITEM_TYPE
 
 
@@ -812,6 +837,7 @@ def test_an_empty_note_is_refused(session):
 # collections
 # --------------------------------------------------------------------------
 
+
 def test_a_duplicate_sibling_collection_name_is_refused(zotero, session):
     """Zotero permits two siblings with one name, and BOTH Calibre consumers look their
     target collection up BY NAME ("calibre"). A second one makes which they find depend
@@ -823,7 +849,7 @@ def test_a_duplicate_sibling_collection_name_is_refused(zotero, session):
 
 
 def test_the_sibling_name_check_is_case_insensitive(zotero, session):
-    """"Calibre" and "calibre" are the same folder to a human doing a name lookup."""
+    """ "Calibre" and "calibre" are the same folder to a human doing a name lookup."""
     zotero.add_collection("Calibre")
     with pytest.raises(WriteBlocked) as e:
         create_collection("calibre", **_kw(session))
@@ -836,9 +862,7 @@ def test_a_collection_is_created_and_names_its_undo(session):
     assert out["undo_call"].startswith("delete_collection(")
 
 
-def test_deleting_a_collection_with_its_items_refuses_without_force(session, 
-    zotero, tmp_path
-):
+def test_deleting_a_collection_with_its_items_refuses_without_force(session, zotero, tmp_path):
     """One boolean turning "delete this folder" into "trash everything in it" must not
     be reachable by a default."""
     collection = zotero.add_collection("Doomed")
@@ -846,31 +870,27 @@ def test_deleting_a_collection_with_its_items_refuses_without_force(session,
     zotero.add_to_collection("ABCD2345", collection)
 
     with pytest.raises(WriteBlocked) as e:
-        delete_collection(collection, delete_items=True,
-                          journal_dir=str(tmp_path / "j"), **_kw(session))
+        delete_collection(
+            collection, delete_items=True, journal_dir=str(tmp_path / "j"), **_kw(session)
+        )
     assert e.value.code == Reason.REFUSING_CASCADE_DELETE
     assert e.value.detail["members"] == ["ABCD2345"]
     assert not zotero.is_trashed("ABCD2345")
 
 
-def test_deleting_a_collection_leaves_its_items_in_the_library(session, 
-    zotero, tmp_path
-):
+def test_deleting_a_collection_leaves_its_items_in_the_library(session, zotero, tmp_path):
     """The default form is not a delete of the contents, and that distinction is the one
     a caller in a hurry gets wrong."""
     collection = zotero.add_collection("Doomed")
     zotero.add("ABCD2345", "A Paper")
     zotero.add_to_collection("ABCD2345", collection)
 
-    out = delete_collection(collection, journal_dir=str(tmp_path / "j"),
-                            **_kw(session))
+    out = delete_collection(collection, journal_dir=str(tmp_path / "j"), **_kw(session))
     assert out["items_trashed"] is False
     assert not zotero.is_trashed("ABCD2345")
 
 
-def test_a_collection_deletion_records_enough_to_rebuild_it(session, 
-    zotero, tmp_path
-):
+def test_a_collection_deletion_records_enough_to_rebuild_it(session, zotero, tmp_path):
     """A trashed ITEM can be restored; a deleted COLLECTION cannot — Zotero's trash holds
     items. So the manifest is the only undo there is, and it has to carry the membership."""
     collection = zotero.add_collection("Doomed")
@@ -879,8 +899,7 @@ def test_a_collection_deletion_records_enough_to_rebuild_it(session,
     zotero.add_to_collection("ABCD2345", collection)
     zotero.add_to_collection("WXYZ6789", collection)
 
-    out = delete_collection(collection, journal_dir=str(tmp_path / "j"),
-                            **_kw(session))
+    out = delete_collection(collection, journal_dir=str(tmp_path / "j"), **_kw(session))
     manifest = json.loads(Path(out["undo_manifest"]).read_text())
     assert manifest["before"]["name"] == "Doomed"
     assert sorted(manifest["before"]["members"]) == ["ABCD2345", "WXYZ6789"]
@@ -889,14 +908,11 @@ def test_a_collection_deletion_records_enough_to_rebuild_it(session,
 
 def test_an_unknown_collection_key_is_refused(tmp_path, session):
     with pytest.raises(WriteBlocked) as e:
-        delete_collection("NOTHERE2", journal_dir=str(tmp_path / "j"),
-                          **_kw(session))
+        delete_collection("NOTHERE2", journal_dir=str(tmp_path / "j"), **_kw(session))
     assert e.value.code == Reason.UNKNOWN_COLLECTION_KEY
 
 
-def test_removing_items_from_a_collection_does_not_trash_them(session, 
-    zotero, tmp_path
-):
+def test_removing_items_from_a_collection_does_not_trash_them(session, zotero, tmp_path):
     """The distinction between this and `trash_items` is exactly the one worth being
     unambiguous about. Nothing here deletes an item."""
     collection = zotero.add_collection("Reading")
@@ -904,7 +920,9 @@ def test_removing_items_from_a_collection_does_not_trash_them(session,
     zotero.add_to_collection("ABCD2345", collection)
 
     out = remove_items_from_collection(
-        collection, ["ABCD2345"], journal_dir=str(tmp_path / "j"),
+        collection,
+        ["ABCD2345"],
+        journal_dir=str(tmp_path / "j"),
         **_kw(session),
     )
     assert not zotero.is_trashed("ABCD2345")
@@ -915,26 +933,23 @@ def test_filing_items_into_a_collection_checks_they_exist_first(zotero, session)
     collection = zotero.add_collection("Reading")
     zotero.add("ABCD2345", "A Paper")
     with pytest.raises(WriteBlocked) as e:
-        add_items_to_collection(collection, ["ABCD2345", "NOTHERE2"],
-                                **_kw(session))
+        add_items_to_collection(collection, ["ABCD2345", "NOTHERE2"], **_kw(session))
     assert e.value.code == Reason.UNKNOWN_ITEM_KEYS
     assert zotero.collection_members(collection) == []
 
 
-def test_a_collection_update_with_nothing_to_change_is_refused(session, 
-    zotero, tmp_path
-):
+def test_a_collection_update_with_nothing_to_change_is_refused(session, zotero, tmp_path):
     collection = zotero.add_collection("Reading")
     with pytest.raises(WriteBlocked) as e:
-        update_collection(collection, journal_dir=str(tmp_path / "j"),
-                          **_kw(session))
+        update_collection(collection, journal_dir=str(tmp_path / "j"), **_kw(session))
     assert e.value.code == Reason.NOTHING_TO_DO
 
 
 def test_a_rename_journals_the_previous_name(zotero, tmp_path, session):
     collection = zotero.add_collection("Old Name")
-    out = update_collection(collection, name="New Name",
-                            journal_dir=str(tmp_path / "j"), **_kw(session))
+    out = update_collection(
+        collection, name="New Name", journal_dir=str(tmp_path / "j"), **_kw(session)
+    )
     manifest = json.loads(Path(out["undo_manifest"]).read_text())
     assert manifest["before"]["name"] == "Old Name"
 
@@ -942,6 +957,7 @@ def test_a_rename_journals_the_previous_name(zotero, tmp_path, session):
 # --------------------------------------------------------------------------
 # the fixture's own faithfulness
 # --------------------------------------------------------------------------
+
 
 def test_the_fake_cookjohn_mimics_the_real_shape_inconsistency(session):
     """`write_item` answers with a nested `data.itemKey`, `create_collection` with a flat
@@ -985,7 +1001,7 @@ def test_creator_verification_tolerates_absent_vs_empty_name_parts(zotero, sessi
     zotero.add("ABCD2345", "A Paper", creators=[{"creatorType": "author", "lastName": "Old"}])
     out = replace_creators(
         "ABCD2345",
-        [{"creatorType": "author", "lastName": "Welling"}],   # no firstName
+        [{"creatorType": "author", "lastName": "Welling"}],  # no firstName
         force=True,
         **_kw(session),
     )
@@ -1097,9 +1113,7 @@ def test_remove_items_reports_which_were_never_there(zotero, session):
     zotero.add("BCDE3456", "Two")
     zotero.add_to_collection("ABCD2345", coll)
 
-    out = remove_items_from_collection(
-        coll, ["ABCD2345", "BCDE3456"], **_kw(session)
-    )
+    out = remove_items_from_collection(coll, ["ABCD2345", "BCDE3456"], **_kw(session))
     assert out["not_in_collection"] == ["BCDE3456"]
     assert out["verification"]["verified"] is True
 

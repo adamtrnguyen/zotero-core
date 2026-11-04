@@ -70,15 +70,15 @@ from zotero_core import build_context, ZoteroItemStore, check_duplicate
 # published factory that supplies the real adapters. Publishing a type is not the same as
 # publishing a way to construct one, which is the lesson `arxiv-bulk` taught twice.
 zc = build_context()
-state       = zc.get_window_state()
-active      = zc.get_active_reader()
+state = zc.get_window_state()
+active = zc.get_active_reader()
 annotations = zc.get_annotations(active.attachment_key) if active else []
-_, pdf_key  = zc.resolve_pdf_attachment_key("U7Y49M4I")
+_, pdf_key = zc.resolve_pdf_attachment_key("U7Y49M4I")
 
 store = ZoteroItemStore()
-store.item_states(["ARTINWQZ"])      # exists / trashed / type / parent / children
-store.item_fields("ARTINWQZ")        # {fieldName: value}
-store.item_creators("ARTINWQZ")      # in orderIndex order
+store.item_states(["ARTINWQZ"])  # exists / trashed / type / parent / children
+store.item_fields("ARTINWQZ")  # {fieldName: value}
+store.item_creators("ARTINWQZ")  # in orderIndex order
 ```
 
 Every sqlite read reports **which mode served it**. With Zotero running, `mode=ro`
@@ -108,7 +108,7 @@ Explicit import: `import zotero_core` stays cheap and read-only.
 from zotero_core import build_write_session, WriteBlocked
 from zotero_core.application.services.verbs import create_item, add_tags, trash_items
 
-session = build_write_session()          # every collaborator, wired once
+session = build_write_session()  # every collaborator, wired once
 create_item("book", {"title": "A Book"}, session=session)
 add_tags("ARTINWQZ", ["read"], session=session)
 ```
