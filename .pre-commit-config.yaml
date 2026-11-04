@@ -1,0 +1,44 @@
+# Commits run the fast fixers; the whole gate, `just qa`, runs before a push. `just` finds the
+# suite's justfile in the parent directory. Install with `uvx pre-commit install` (both hook
+# types): a config nobody installed enforces nothing. Why: docs/history/2026-11-04-qa-gate.md.
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+      - id: detect-private-key
+      - id: check-merge-conflict
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # MUST equal the `ruff==` pin in pyproject: hook and gate agree only at the same version.
+    rev: v0.17.2
+    hooks:
+      # Fixers, not the gate: `just qa` decides whether lint and format pass.
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      # The gate itself, named by recipe so hook and gate cannot disagree. Pre-push, because
+      # the tests are most of the cost. Through `just`: a bare `uv run pytest` fails to spawn
+      # under `uvx pre-commit`.
+      - id: qa
+        name: just qa
+        entry: just qa
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

@@ -36,10 +36,10 @@ zotero-core-mcp = "zotero_core.interfaces.mcp_server:run"
 # into, while nobody consuming this package wants a type checker.
 dev = [
     "pytest>=8",
-    "ruff>=0.6",
-    "ty==0.0.55",  # PINNED EXACTLY: ty is pre-1.0 (0.0.x) and its diagnostics change
-                   # between releases, so an unpinned bump turns `just lint` red with
-                   # no code change. Same pin as omni-rag and the other siblings.
+    # Exact pins: a float turns the gate red with no code change. The ruff pin equals the
+    # ruff-pre-commit `rev` in .pre-commit-config.yaml; bump the two together.
+    "ruff==0.17.2",
+    "ty==0.0.88",
     "import-linter>=2.9",
     "vulture>=2.14",
     "codespell>=2.4",

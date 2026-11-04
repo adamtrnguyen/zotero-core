@@ -263,7 +263,7 @@ throwaway item created for the purpose (`UUV3HWD2`, linked attachment `MAQ3PAG9`
 ## Tests
 
 ```bash
-just qa              # from the repo root: lint + types + layering + sprawl + tests
+just qa              # from the suite root: lint fmt-check types layers dead spell test
 uv run pytest        # pytest prints the count; it is not written down here
 ```
 

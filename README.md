@@ -187,10 +187,10 @@ library — this machine has group libraries, and some collections live in them
 ## QA
 
 ```bash
-just qa      # from the suite root: ruff + ty + 5 contracts + vulture + codespell + tests
+just qa      # the gate: lint fmt-check types layers dead spell test, concurrently
+just fix     # opt-in fixers: ruff check --fix, then ruff format
 ```
 
-`ruff format` is **deliberately absent** — `__all__` is grouped by CRUD concern rather
-than sorted (`# noqa: RUF022`, "the grouping IS the documentation") and verb call sites
-are hand-aligned to keep the injection seams readable. Use `just format`, which is
-`ruff check --fix` only.
+`just qa` runs every check at once and names every failure; it never rewrites files. The
+pre-commit hooks run the ruff fixers on commit and `just qa` on push (`uvx pre-commit install`).
+`ruff format` keeps `__all__` grouped by CRUD concern (`# noqa: RUF022`); it does not sort lists.
