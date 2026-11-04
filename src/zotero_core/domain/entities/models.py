@@ -3,17 +3,10 @@
 All joins or projections rather than raw rows. None has a `from_bridge` — nothing here
 comes off the wire; the bridge DTOs live next door in `gui.py`.
 
-⚠ TWELVE OF THESE WERE DEFINED INSIDE THE SQL LAYER. `ItemState`, `Library`, `ItemHit`
-and the rest sat in `read/items.py`, `read/libraries.py`, `read/search.py` and
-`read/collections.py` — so the package's actual Zotero nouns were declared by the module
-that queries for them, while `domain/entities.py` held only the six bridge DTOs that
-model an HTTP response. That is what made `domain/` a shared-utilities bucket rather than
-a domain: the entities were somewhere else.
-
-Moving them costs consumers nothing because tests and `omni-rag` couple to these types
-STRUCTURALLY — by attribute and dict key, never by import path — and the four public ones
-(`ItemState`, `ItemStates`, `ZoteroAttachment`, `ZoteroAttachments`) still resolve from
-`zotero_core` unchanged.
+These live in the domain, not beside the queries that build them: the module that queries
+for a noun does not get to declare it. Consumers couple to them structurally (attribute and
+dict key), and the four public ones (`ItemState`, `ItemStates`, `ZoteroAttachment`,
+`ZoteroAttachments`) resolve from `zotero_core`. History: docs/history/package-structure.md.
 """
 
 from __future__ import annotations
@@ -33,10 +26,8 @@ class ZoteroSource:
     authors: str
     annotation_count: int
     citekey: str = ""
-    #: What the annotated attachment IS. Added 2026-08-20 because the query that builds this
-    #: used to filter to `application/pdf` and silently dropped every annotated HTML snapshot
-    #: — carrying the type instead of filtering on it lets a caller narrow without the reader
-    #: deciding for them.
+    #: What the annotated attachment IS (a PDF, an HTML snapshot). Carried rather than
+    #: filtered on, so a caller narrows without the reader deciding for them.
     content_type: str = ""
 
 
@@ -233,11 +224,8 @@ class Library:
 class TrashedItem:
     """One item in the trash, with the date it was put there.
 
-    ⚠ THE FIRST TIMESTAMP THIS PACKAGE READS. `grep -rn "dateAdded|dateModified|dateDeleted"`
-    over `src/` returned zero hits before this: `deletedItems` was only ever COUNTED or used
-    as a `NOT IN` filter, so "which of these did I trash in 2024" was not a question the
-    package could answer — and 22 of the 25 trashed items could not even be named, because
-    trashed rows are excluded from `search.items` and belong to no collection.
+    The only way to name a trashed item: trashed rows are excluded from `search.items` and
+    belong to no collection, so "which of these did I trash, and when" needs this read.
 
     `date_deleted` is Zotero's own string (`YYYY-MM-DD HH:MM:SS`, UTC), passed through rather
     than parsed. Parsing it here would invent a timezone the database does not state.

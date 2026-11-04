@@ -154,8 +154,7 @@ def _reader(ctx: ZoteroContext, args: argparse.Namespace, *, active_only: bool) 
         "annotation_types": parse_types(args.annotation_types),
     }
     if active_only:
-        # The `[0] if contexts else None` collapse lives on the facade now -- it was written
-        # out here AND in `read_mcp`, identically.
+        # The reduction to one reader lives on the facade, shared with `read_mcp`.
         return ctx.get_active_reader_context(**kwargs)
     return ctx.get_open_reader_context(active_only=False, **kwargs)
 
@@ -238,9 +237,9 @@ def dispatch(ctx: ZoteroContext, args: argparse.Namespace) -> Any:
 def print_json(payload: Any, *, pretty: bool = False) -> None:
     """Print a result. Serialisation is `rendering.render_json`, shared with both adapters.
 
-    ⚠ This used to call `json.dumps` itself, WITHOUT `default=str` -- so a value the domain
-    does not model (a `Path`, a `datetime` in a `WriteBlocked.detail`) raised here while the
-    write adapter, which had the fallback, survived the identical payload.
+    Never `json.dumps` directly: the shared renderer's `default=str` is what lets a value the
+    domain does not model (a `Path`, a `datetime` in a `WriteBlocked.detail`) render here
+    as it does in the adapters.
     """
     print(render_json(payload, indent=2 if pretty else None))
 

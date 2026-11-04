@@ -60,11 +60,6 @@ what this protects: `omni-rag` imports the read path inside its ARC entrypoints,
 `mcp` a hard dependency would put an async runtime in the import path of every consumer
 that only wants to read a catalogue. `.importlinter` enforces it -- every module except
 this one and its sibling adapter is forbidden from importing `mcp`.
-
-⚠ This used to cite `cookjohn.py`, "stdlib-only so it can be VENDORED into
-`calibre-zotero-jump`". That premise is false — nothing is vendored there, and that module
-imports `zotero_core.domain.*` at module scope. The rule is unchanged; only its reason was
-wrong.
 """
 
 from __future__ import annotations
@@ -156,10 +151,8 @@ _COPY_DB = {
 def list_undo(limit: int = 25, *, session: WriteSession) -> dict:
     """The write journal, newest first, with why each entry can or cannot be replayed."""
     entries = _list_entries(limit=limit, journal=session.journal)
-    # Through `ok()`, not hand-built. This return used to spell the frame out itself and
-    # OMITTED `transport` — the field `ok()` validates against `TRANSPORTS` and the first
-    # thing anyone debugging a write reads. `"none"` is the honest value: listing the
-    # journal touches no plugin.
+    # Through `ok()`, not hand-built, so the frame carries `transport` like every result.
+    # `"none"` is the honest value: listing the journal touches no plugin.
     return ok(
         "list_undo",
         transport="none",
@@ -198,16 +191,15 @@ def preflight(item_keys: list[str] | None = None, *, session: WriteSession) -> d
     exports for exactly this purpose ("gates, exposed so a caller can pre-flight
     without writing"). Nothing here mutates anything.
     """
-    # ⚠ NOT built by `results.ok()`, deliberately, and this is the one place that is the
+    # NOT built by `results.ok()`, deliberately, and this is the one place that is the
     # right call. `ok()` hardcodes `"ok": True` because it is a SUCCESS envelope — it says
     # a write happened. Preflight's `ok` is a HEALTH VERDICT: it flips to False below when
     # a plugin does not answer, and nothing was attempted either way. Routing it through
     # `ok()` would need the builder to grow a way to say False, which would let a genuine
     # write claim success while reporting failure.
     #
-    # `transport` IS added, which is what the audit actually found missing: it is the field
-    # `ok()` validates and the first thing anyone reads, and `"both"` is honest here —
-    # preflight probes each plugin separately, which is its entire purpose.
+    # `transport` IS carried, as in every result, and `"both"` is honest here: preflight
+    # probes each plugin separately, which is its entire purpose.
     report: dict[str, Any] = {
         "ok": True,
         "op": "preflight",
@@ -651,11 +643,10 @@ TOOLS: tuple[_ToolSpec, ...] = (
         transport="none",
         description=(
             "The write journal, newest first. Ten verbs record the call that reverses "
-            "them; until now NOTHING read those manifests, so `undo_call` was advisory "
-            "text you retyped. Each entry says whether it can be replayed and, if not, "
-            "why -- some operations genuinely cannot express an inverse (a note update "
-            "does not capture the previous body; recreating a deleted collection gives "
-            "it a new key)."
+            "them, and zotero_undo replays it. Each entry says whether it can be "
+            "replayed and, if not, why -- some operations genuinely cannot express an "
+            "inverse (a note update does not capture the previous body; recreating a "
+            "deleted collection gives it a new key)."
         ),
         properties={"limit": {"type": "integer", "default": 25}},
     ),
@@ -709,12 +700,9 @@ def call_writes(
 ) -> Any:
     """Dispatch one tool call. Thin by design -- the logic is shared, see `tool_spec`.
 
-    `session` is the injection point the MCP surface used to lack. Its absence is what
-    forced the test suite to rewrite module globals: the fixture's comment read "it is the
-    only way in, because the MCP surface has no injection parameter by design". Defaulting
-    it HERE is correct in a way defaulting it in the verbs was not -- this is the
-    composition root's own layer, which is the one place allowed to name a concrete
-    adapter.
+    `session` is the injection point, so no test rewrites a module global. Defaulting it
+    HERE is correct in a way defaulting it in the verbs would not be: this is the
+    composition root's own layer, the one place allowed to name a concrete adapter.
     """
     # ONE session per call, built by the composition root. The verbs take it as a
     # required argument now, so there is no module global for a test to rewrite and no
@@ -758,8 +746,6 @@ async def main() -> None:
 def _render(payload: Any) -> str:
     """Serialise a result. Delegates to `rendering.render_json`.
 
-    This was the ONLY one of three copies carrying `default=str`, so the reasoning that
-    used to live here now lives with the shared implementation — where the read adapter
-    and the CLI get it too.
+    One renderer for the CLI and both adapters, so `default=str` applies everywhere.
     """
     return render_json(payload)

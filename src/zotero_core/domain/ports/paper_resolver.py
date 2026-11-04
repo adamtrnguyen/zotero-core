@@ -1,13 +1,8 @@
 """Turning a paper's URL into Zotero metadata and a PDF.
 
-WHAT THIS REPLACES
-------------------
-ZotLink, a separate MCP server and a private fork of ~9,400 lines, whose job this was. Its
-own log (2026-03 to 2026-09) showed what was actually used: arXiv almost exclusively, a
-generic page scraper that saved bot-wall pages ("Client Challenge", "Verifying your
-browser | OpenReview") as papers, and site extractors that were selected zero times. So
-the port states the one question worth asking -- what is at this URL -- and the saving
-itself goes through the existing gated verbs, `create_item` and `import_attachment`.
+The port states one question -- what is at this URL -- and the saving itself goes through
+the existing gated verbs, `create_item` and `import_attachment`. It replaces ZotLink; why:
+docs/history/paper-resolver.md.
 
 Behind a port for the reason `CitationKeys` is: it is the network, not our database or our
 plugin, and a test must be able to answer it without one.

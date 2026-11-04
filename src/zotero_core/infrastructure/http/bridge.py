@@ -20,10 +20,8 @@ class ZoteroBridgeClient:
         self.timeout = timeout
 
     def ping(self) -> dict:
-        # ⚠ WAS `self.url.replace("/window-state", "/ping")` while `DEFAULT_PING_URL`
-        # sat three lines above, defined and never read — the constant was dead AND its
-        # value hand-derived. String surgery on a caller-supplied URL also silently
-        # produces the wrong endpoint for any `url` not containing "/window-state".
+        # The constant for the default URL; string surgery only for a caller-supplied one,
+        # which yields the wrong endpoint if that URL lacks "/window-state".
         ping_url = (
             DEFAULT_PING_URL
             if self.url == DEFAULT_BRIDGE_URL
@@ -40,12 +38,9 @@ class ZoteroBridgeClient:
             with urllib.request.urlopen(self.url, timeout=self.timeout) as response:
                 payload = json.load(response)
         except urllib.error.HTTPError as exc:
-            # ⚠ AN HTTPError MEANS THE BRIDGE ANSWERED, and this used to report it as "not
-            # reachable at {url}" -- which is false, and sends you to check whether Zotero
-            # is running when the plugin already told you what went wrong. The plugin
-            # returns `{"ok": false, "error": ...}` with a 500 (`bridge/bootstrap.js`), and
-            # that body was being discarded unread. `transports/linker.py` gets this right
-            # and its docstring explains why; the two now agree.
+            # An HTTPError means the bridge ANSWERED: report its status and its
+            # `{"ok": false, "error": ...}` body (`bridge/bootstrap.js`), never "not
+            # reachable", which would send the caller to check whether Zotero is running.
             detail = ""
             try:
                 body = json.loads(exc.read().decode("utf-8", "replace"))

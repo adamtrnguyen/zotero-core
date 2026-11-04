@@ -118,23 +118,10 @@ def build_context(
     and the MCP adapter's `ZOTERO_CORE_DB` both mean exactly this. The eight port arguments
     are overrides, for a test or a caller that already holds one.
 
-    ⚠ TWO DEFECTS FIXED HERE, both found by an audit rather than by a test.
-
-    1. This took `**overrides` and `.pop`ed names out of it, so a MISSPELLED port was
-       silently ignored: `build_context(bbt_client=Fake())` returned a real
-       `BetterBibTeXClient` and reported nothing. That is the same silent-no-op this
-       module's own docstring indicts monkeypatching for -- "a renamed module would
-       silently stop being patched" -- reintroduced as a typo'd keyword. Named parameters
-       make it a `TypeError`.
-    2. It used `x or Concrete()`, which discards a FALSY override. Measured: a stub whose
-       `__bool__` returns False was thrown away and the real store used instead.
-       `is not None` is the test that means "was one supplied", which is the question.
-       `build_write_session` already did this correctly; the two now agree.
-
-    Annotating each parameter with its PORT is what lets `ty` check the wiring at all. With
-    the old `**overrides` every argument was laundered through `Unknown` before it reached
-    the typed dataclass, so passing a non-port produced zero diagnostics here while
-    constructing `ZoteroContext` directly produced eight.
+    Named parameters, not `**overrides`, so a MISSPELLED port is a `TypeError` rather than
+    silently replaced by the real adapter; and each is annotated with its PORT, so `ty`
+    checks the wiring. `is not None`, never `x or Concrete()`, because `or` discards a
+    FALSY override. History: docs/history/package-structure.md.
 
     Every store reads the SAME database. Handing them different paths would let a duplicate
     check answer about one library while the existence gate read another -- which is also

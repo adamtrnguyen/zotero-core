@@ -266,17 +266,15 @@ def _verify_attachment(
     """Confirm the attachment exists, hangs off the right parent, and has a FILE.
 
     The file check is the point. Every other verification here asks whether a row landed;
-    this asks whether the thing the row promises is actually on disk -- which is the
-    failure this library already has 31 live instances of: linked attachments pointing at
-    Calibre directories that were renamed, so the item looks like it has a PDF and opens
-    to an error. Nothing caught them at write time because nothing looked.
+    this asks whether the thing the row promises is actually on disk: a linked attachment
+    pointing at a renamed directory looks like it has a PDF and opens to an error.
 
     `expect_file=False` for a linked URL, which correctly has no file at all.
 
-    ⚠ `file_exists: None` means UNRESOLVABLE, not missing: a path stored relative to
+    `file_exists: None` means UNRESOLVABLE, not missing: a path stored relative to
     Zotero's base directory cannot be resolved from sqlite, because that base lives in
     prefs.js. Reported as `unresolved` rather than folded into either verdict -- calling
-    it a failure would flag most of this library's linked attachments as broken.
+    it a failure would flag every base-relative linked attachment as broken.
     """
     if not attachment_key:
         return {
@@ -406,10 +404,8 @@ def import_attachment(
     reply = session.cookjohn.call("write_item", arguments)
     attachment_key = session.cookjohn.find_key(reply)
     if not attachment_key:
-        # `create_item` raises exactly here for exactly this (COOKJOHN_RETURNED_NO_KEY);
-        # this verb used to put the None straight into its envelope beside "ok": True,
-        # so a caller got a success it could not act on and no way to tell whether the
-        # attachment had been created.
+        # Refused, as `create_item` refuses: a success envelope with no key is one a caller
+        # cannot act on, and cannot tell from a failed import.
         raise WriteBlocked(
             Reason.COOKJOHN_RETURNED_NO_KEY,
             "cookjohn accepted the import but returned no attachment key — the file may "
@@ -520,28 +516,24 @@ def _verify_fields(
 ) -> dict:
     """Re-read the fields and classify each one, tolerating Zotero's two rewrites.
 
-    Strict equality here produces FALSE alarms, and neither case is hypothetical.
+    Strict equality here produces FALSE alarms, for two observed reasons (the live writes
+    that showed them: docs/history/write-verification.md).
 
-    THE VALUE CHANGES. Writing `date="2026"` to a real item on 2026-08-13 came back
-    stored as `"2026-00-00 2026"`, because Zotero parses the date field into its own
-    multipart form. An equality check reported that successful write as unverified and
-    blamed the snapshot read -- an error message pointing at entirely the wrong thing.
-    So a stored value that CONTAINS what was written counts as `normalized`, and the
-    stored form is reported so the caller can see what Zotero made of their input.
+    THE VALUE CHANGES. Zotero parses the date field into its own multipart form, so a
+    bare year `Y` is stored as `"Y-00-00 Y"`. A stored value that CONTAINS what was
+    written counts as `normalized`, and the stored form is reported so the caller can see
+    what Zotero made of their input.
 
     THE FIELD NAME CHANGES. Zotero maps a BASE field name onto the field the item type
     actually carries, and cookjohn writes through that mapping: `publicationTitle` on a
     `conferencePaper` is stored as `proceedingsTitle`, on a `bookSection` as
     `bookTitle`. `write_metadata` answers ok, the value is in the library, and a
-    read-back of the name that was WRITTEN finds nothing -- so this reported a
-    successful write as `disagreed` and sent the caller to check Zotero by hand
-    (observed 2026-08-13 on a conferencePaper venue write). A field found under its
+    read-back of the name that was WRITTEN finds nothing. A field found under its
     mapped name is reported as `mapped_to_type_field`, which is deliberately NOT folded
     into `normalized_by_zotero`: the value is intact and it is the NAME that moved, and
     a caller re-reading the field later needs to be told which name to ask for.
 
-    `item_type=""` skips the mapping lookup and compares names literally, which is the
-    behaviour every caller had before the mapping was read.
+    `item_type=""` skips the mapping lookup and compares names literally.
     """
     now = store.item_fields(item_key)
     aliases = store.base_field_map(item_type) if item_type else {}
@@ -600,12 +592,11 @@ def _verify_creators(store: Catalogue, item_key: str, written) -> dict:
     """Re-read the creators and compare IN ORDER.
 
     Order is meaning, not presentation: the first author drives the duplicate-detection
-    tier in `read/duplicates.py`, so a set comparison would pass a write that silently
-    reordered them and broke dedupe.
+    tier in `infrastructure/sqlite/duplicates.py`, so a set comparison would pass a write
+    that silently reordered them and broke dedupe.
 
-    Tolerance follows `_verify_fields`' lesson -- strict equality there produced false
-    alarms twice on real writes, and reporting a good write as broken sends the caller to
-    check Zotero by hand for nothing. Here the tolerance is empty-vs-absent (see
+    Tolerance follows `_verify_fields`: reporting a good write as broken sends the caller
+    to check Zotero by hand for nothing. Here the tolerance is empty-vs-absent (see
     `_creator_key`); anything beyond that is reported rather than forgiven.
     """
     after = store.item_creators(item_key)
@@ -746,15 +737,13 @@ def set_tags(
 def _verify_tags(action: str, was, now, requested) -> dict:
     """Turn the before/after pair into a VERDICT.
 
-    `_tag_op` has always re-read the tags -- it just handed back `tags_before` and
-    `tags_after` and left the caller to diff them, which is a read-back without a
-    conclusion. Every other verb here says whether it worked; these said "here are two
-    lists".
+    A read-back without a conclusion (`tags_before`, `tags_after`, diff it yourself) is not
+    a verification; every verb here says whether it worked.
 
     Expectation depends on the action, which is why this cannot be one generic set
     comparison: add is a union, remove is a difference, set is a replacement.
 
-    ⚠ Tolerates EXTRA tags after an add or a remove, and reports them. Zotero plugins
+    Tolerates EXTRA tags after an add or a remove, and reports them. Zotero plugins
     write tags of their own -- `/unread` appears on every item created through this
     package, added by a reading-list plugin -- so demanding an exact set would report
     every successful add as broken. A `set` is different: it is a replacement and extras
@@ -927,10 +916,11 @@ def _note_existing_checks(session, action, parent_item_key, note_key, journal_di
 def _verify_note(store: Catalogue, note_key: str | None, parent_item_key, action: str) -> dict:
     """Confirm the note item exists, is a note, and hangs off the right parent.
 
-    ⚠ PARTIAL, and it says so rather than implying more. The note BODY is not checked,
-    because nothing in `read/` reads one -- note text lives in `itemNotes.note` and the
-    read layer has no accessor for it. So this catches "the note was not created" and
-    "it landed on the wrong parent", and cannot catch "the body is not what I sent".
+    PARTIAL, and it says so rather than implying more. The note BODY is not checked,
+    because no reader in `infrastructure/sqlite/` reads one -- note text lives in
+    `itemNotes.note` and the read layer has no accessor for it. So this catches "the note
+    was not created" and "it landed on the wrong parent", and cannot catch "the body is
+    not what I sent".
 
     That gap lines up with the one `journal.py` already documents: `write_note(action=
     "update")` does not capture the previous body either, so an update is the one note
@@ -1110,7 +1100,7 @@ def _sort_index(position: dict) -> str:
 def _verify_annotation(store: Catalogue, key: str | None, parent_item_key: str) -> dict:
     """Confirm the annotation exists and hangs off the attachment it was aimed at.
 
-    ⚠ PARTIAL, on the same terms as `_verify_note`. The read layer has no accessor for
+    PARTIAL, on the same terms as `_verify_note`. The read layer has no accessor for
     `annotationPosition`, so this catches "it was not created" and "it landed on the
     wrong parent", and CANNOT catch "the rects are wrong" -- which is the failure mode
     most likely to happen, because the rects come from a PDF text search outside this
@@ -1240,12 +1230,10 @@ def _trash_verdict(disagreed: list[str]) -> dict:
     third outcome here.
 
     Zotero holds the database locked while it runs, so `mode=ro` fails and the
-    `immutable=1` fallback serves the row (measured 2026-08-13); that fallback is a
-    point-in-time view. When such a read DISAGREES the honest report is "unverified"
-    rather than "failed" -- claiming a write did not land on the authority of a snapshot
-    that may simply be behind would be the mistake this module exists to avoid. Live
-    evidence is that the snapshot IS fresh enough: every trash/restore round trip run
-    against the real library read back immediately, all through `immutable=1`.
+    `immutable=1` fallback serves the row; that fallback is a point-in-time view. When such
+    a read DISAGREES the honest report is "unverified" rather than "failed" -- claiming a
+    write did not land on the authority of a snapshot that may simply be behind would be
+    the mistake this module exists to avoid.
     """
     if not disagreed:
         return {"verified": True}
@@ -1396,14 +1384,11 @@ def trash_items(
 
     Recoverable is a property of the endpoint, not a hope: `bootstrap.js` calls
     `Zotero.Items.trashTx`, which sets the trash flag inside a transaction. Nothing
-    is erased, and the library already holds 277 trashed items, so this is a state
-    the application is entirely used to.
+    is erased, and a trashed item is an ordinary state for Zotero.
 
-    Works on any item key the running Zotero can resolve, INCLUDING attachments.
-    That was the one thing nobody had ever run -- `bootstrap.js` uses
-    `getByLibraryAndKey`, which accepts any item key, so it looked likely but was
-    unverified. Now measured: linked-file attachment MAQ3PAG9 trashed and restored
-    cleanly on 2026-08-13 (see README).
+    Works on any item key the running Zotero can resolve, INCLUDING attachments:
+    `bootstrap.js` uses `getByLibraryAndKey`, which accepts any item key (the live
+    attachment round trip: docs/history/write-verification.md).
 
     force=True skips keys that are already trashed instead of refusing the batch. It
     never relaxes the liveness or existence gates.

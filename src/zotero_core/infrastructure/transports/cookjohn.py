@@ -1,28 +1,13 @@
 """MCP JSON-RPC transport to the cookjohn zotero-mcp-plugin on :23121.
 
-THIS FILE IS THE POINT OF THE PACKAGE. It is the third copy of this client, and it
-exists so the first two can be deleted:
+The one cookjohn client in the suite: every Python consumer that can import this package
+writes through it, so there is one answer to "is this already in Zotero". The exception is
+`calibre-zotero-jump`, a Calibre plugin running inside Calibre's embedded Python, which
+cannot see a uv virtualenv; it keeps its own `_Mcp` in `ui.py`, outside these tests.
 
-  * `importers/calibre2zotero/sync.py:139`  class Mcp
-  * `calibre-zotero-jump/ui.py:24`          class _Mcp
-
-They are near-identical -- same initialize handshake, same SSE-unwrapping hack,
-same `tools/call` result flattening -- and they were copied rather than shared, so
-they drifted where it mattered most: they disagree about how to tell whether a book
-is already in Zotero. One scans Zotero's `extra` for `calibre-uuid:`, the other
-trusts a `zotero` identifier on the Calibre side. Two answers to one question is
-what a missing owner produces.
-
-One of the two cannot be fixed by importing this. `calibre-zotero-jump` is a Calibre
-plugin running inside Calibre's embedded Python, which cannot see a uv virtualenv, so it
-reimplements what it needs rather than depending on this package.
-
-⚠ THIS PARAGRAPH USED TO CLAIM THIS MODULE IS VENDORED THERE, and that it is "stdlib-only:
-`urllib` and `json`, nothing else". Both are false, and the file contradicted itself: it
-imports `zotero_core.domain.errors` and `zotero_core.domain.services.identity` at module
-scope (see the imports below), and `calibre-zotero-jump/build.sh` zips three files, none of
-them this one. The stdlib-only discipline that DOES hold is about third-party packages --
-`dependencies = []` — not about intra-package imports.
+Stdlib-only means no third-party packages (`dependencies = []`); importing
+`zotero_core.domain` is fine. How the duplicate clients came to be retired, and the
+vendoring claim that was never true: docs/history/package-structure.md.
 
 THE SSE UNWRAP, WHICH LOOKS LIKE A HACK AND IS NOT
 --------------------------------------------------
@@ -172,20 +157,7 @@ class CookjohnClient:
             return text
 
 
-# ⚠ THE PRIVATE KEY REGEX THAT USED TO SIT HERE IS GONE, and the comment justifying it
-# was wrong twice over. It read: "a DELIBERATE SECOND COPY... this module is vendored
-# VERBATIM into `calibre-zotero-jump`... so it must stay import-standalone."
-#
-#   1. `calibre-zotero-jump` does not vendor this file. Checked 2026-08-19: its
-#      `build.sh` zips `__init__.py`, `ui.py` and the import-name marker, and `ui.py`
-#      contains "cookjohn" zero times. It reimplements the JSON-RPC client and carries
-#      its own `\b([A-Z0-9]{8})\b` -- a copy this package cannot reach or check.
-#   2. This module was never import-standalone anyway: it imports
-#      `zotero_core.domain.errors` at the top of the file, and has for as long as the
-#      error vocabulary has existed.
-#
-# So the copy bought nothing and cost a drift test. The rule now comes from the one
-# place that owns it, which is what `domain/services/identity.py` was created for.
+# Key shapes come from `domain/services/identity.py`, the one place that owns the rule.
 
 # Field names cookjohn uses for the key of a thing it just created, most specific
 # first. `write_item` answers with a nested `data.itemKey`; `create_collection` with a

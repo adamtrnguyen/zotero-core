@@ -2,31 +2,8 @@
 # third-party imports to check: the sqlite adapters are stdlib `sqlite3`, both write
 # transports are stdlib `urllib`, and `mcp` appears only inside the adapters.
 #
-# THE LAYER NAMES ARE omni-rag's, DELIBERATELY
-# --------------------------------------------
-# This file used to name `interfaces > write > read > domain`, which described the
-# merge rather than an architecture: `read` was a layer named after a DIRECTION, and
-# it held the sqlite driver, the HTTP clients and a facade all at one level. The names
-# now match the convention `omni-rag` already enforces, so this package reads like the
-# rest of the estate:
-#
-#     read/{connect,items,collections,search,annotations,duplicates,libraries}
-#                                          -> infrastructure/sqlite/     (the driver)
-#     read/{bridge,bbt}                    -> infrastructure/http/       (the network)
-#     write/transports/{cookjohn,linker}   -> infrastructure/transports/ (the network)
-#     write/journal.py                     -> infrastructure/journal.py  (the filesystem)
-#     write/errors.py                      -> domain/errors.py           (pure vocabulary)
-#
-#     write/{verbs,collections,liveness,replay} -> application/services/
-#
-# ✅ THE INVERSION IS DONE. This comment used to say `write` "is NOT yet `application`" and
-# that the order "still puts it ABOVE infrastructure" — which contradicted the contract 21
-# lines below, where the layers already read
-# `interfaces > infrastructure > application > domain`. It became true when the verbs
-# stopped naming adapters: `application/` now depends on `domain/ports/` only, and
-# `interfaces/factory.py` injects the concrete ones. Verified independently by dumping every
-# import in `application/` and `domain/` — stdlib plus `zotero_core.{domain,application}.*`,
-# nothing else.
+# The layer names are omni-rag's, so this package reads like the rest of the estate.
+# How the old `read/` / `write/` layout mapped onto them: docs/history/package-structure.md.
 [importlinter]
 root_packages =
     zotero_core
@@ -35,10 +12,8 @@ root_packages =
 include_external_packages = True
 
 # --------------------------------------------------------------------------
-# 1. the direction that used to be a package boundary
+# 1. the direction
 # --------------------------------------------------------------------------
-# Formerly the `suite-direction` contract over two root packages, then
-# `interfaces > write > read > domain`. It is the same rule throughout: direction.
 # Infrastructure must never import the write path -- every precondition a write needs
 # is a read (does the key resolve, is it already trashed, what tags are there to be
 # replaced), so writes depend on reads and reads never depend on writes. That
@@ -79,9 +54,8 @@ layers =
 #                      into a function, which is what keeps the whitelist from making
 #                      this module a hard dependency of every verb.
 #
-# ⚠ Three modules LEFT this spine and the contract shrank accordingly: `transports`
-# and `journal` are infrastructure, `errors` is domain. Contract 1 now places all
-# three below everything here, which is strictly stronger than their old rung.
+# `transports` and `journal` (infrastructure) and `errors` (domain) are not on this spine:
+# contract 1 places them below everything here.
 [importlinter:contract:write-spine]
 name = application layers: replay above verbs above liveness above results
 type = layers
@@ -120,16 +94,8 @@ allow_indirect_imports = True
 # an `mcp` import outside `interfaces` would force every consumer to install an async
 # runtime just to import a tag verb. `omni-rag` imports the read path inside its ARC
 # entrypoints, where that cost is not hypothetical.
-#
-# ⚠ THIS COMMENT USED TO JUSTIFY THE RULE BY VENDORING -- "`calibre-zotero-jump/ui.py`
-# runs inside Calibre's embedded Python... an `mcp` import anywhere in the write path
-# would make it unvendorable". That premise is FALSE and was checked on 2026-08-19:
-# `calibre-zotero-jump/build.sh` zips exactly `__init__.py`, `ui.py` and the
-# import-name marker, and `ui.py` contains the string "cookjohn" zero times. It is an
-# INDEPENDENT REIMPLEMENTATION -- its own `_rpc`, its own `\b([A-Z0-9]{8})\b` -- not a
-# vendored copy of `transports/cookjohn.py`. The rule survives on `dependencies = []`;
-# the vendoring argument does not, and anything else resting on it (a Protocol chosen
-# so cookjohn "stays import-standalone") needs a different reason or none.
+# Not because anything is vendored into calibre-zotero-jump: nothing is
+# (docs/history/package-structure.md).
 #
 # `interfaces` is excluded because it is the layer allowed to import `mcp`, and it does
 # so INSIDE `main()`; AST tests assert that from the other direction.

@@ -1,31 +1,15 @@
 """Pure domain: entities, values and policy. No sqlite, no HTTP, no mcp.
 
     read_mode.py        ReadMode -- which mode served a sqlite read
-    entities.py         the types (being split by provenance; see the plan)
-    services/           pure functions: identity, policy
+    annotation_type.py  the annotation vocabulary
+    entities/           the types, split by provenance
+    ports/              the Protocols application depends on
+    services/           pure functions: identity, policy, identifiers
 
-WHAT THIS LAYER IS FOR, AND WHAT IT TOOK TO MEAN IT
----------------------------------------------------
-Rules that were duplicated because there was nowhere to put them.
-
-⚠ This docstring previously said `_KEY_RE` "lived in three files ... a layer that cannot
-import a driver is what keeps them from drifting apart again" -- in the present tense,
-describing work that had not been done. There were in fact FIVE copies and FOUR distinct
-implementations, and `domain/` contained none of them. The `.importlinter` rationale and
-the README repeated the same claim.
-
-It is true now: `services/identity.py` holds the one rule, and
-`tests/test_identity.py` greps the package to keep it that way. The fourth
-implementation -- `str.isalnum()`, which accepted full-width Unicode the regexes reject --
-was a real divergence between the read and write layers, not just untidiness.
-
-⚠ NO COPY REMAINS. This said one survived "ON PURPOSE, in `write/transports/cookjohn.py`:
-that module is vendored verbatim into Calibre's embedded Python and must stay
-import-standalone... a test asserts it has not drifted". Three things wrong: the path is now
-`infrastructure/transports/cookjohn.py`, the file is not vendored anywhere, and it imports
-`zotero_core.domain.*` at module scope so it was never import-standalone. The copy is gone and
-`tests/test_identity.py` is an ABSENCE check -- there is no drift test because there is nothing
-to drift.
+Rules that would otherwise be duplicated across adapters live here, once.
+`services/identity.py` holds the one rule for what a Zotero key is, and
+`tests/test_identity.py` checks no other copy exists in the package.
 
 `.importlinter`'s `domain-is-pure` contract enforces the "no driver" half.
+History of the key-rule consolidation: docs/history/identity-and-normalisation.md.
 """

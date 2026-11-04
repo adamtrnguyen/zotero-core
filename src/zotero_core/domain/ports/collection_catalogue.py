@@ -5,11 +5,8 @@ already in the code: `Catalogue` is what every write gate uses (does this key ex
 tags does it carry), while this is used only by the six collection verbs, to answer
 "where does this collection sit" and "what is already in it".
 
-⚠ The four call sites reached `ZoteroCollectionStore` through a DEFERRED import inside the
-function body — `from zotero_core.infrastructure... import ZoteroCollectionStore` at line
-243, 268, 319 and 527. A function-level import is still a dependency; it is a dependency
-that does not show up when you read the module's head, which is worse. import-linter sees
-them, which is how they were found.
+A port, not a deferred import of the store: a function-level import is still a
+dependency, just one that does not show at the module's head.
 """
 
 from __future__ import annotations
@@ -22,8 +19,8 @@ class CollectionCatalogue(Protocol):
     """Read-only access to collections and their membership."""
 
     #: Which library this adapter reads. The read facade offers every collection call
-    #: per-library and used to serve that by CONSTRUCTING a second store; asking the
-    #: current adapter for a sibling keeps that with the code that knows how.
+    #: per-library by asking the current adapter for a sibling (`for_library`), which keeps
+    #: construction with the code that knows how.
     library_id: int
 
     def for_library(self, library_id: int) -> CollectionCatalogue: ...

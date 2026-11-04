@@ -5,16 +5,16 @@ WHY THIS IS A MANIFEST AND NOT A DATABASE COPY
 calibre-core copies metadata.db before every write because a DB rollback is the only
 undo that exists there. Neither half of that holds for Zotero:
 
-  * `zotero.sqlite` is 329 MB (measured 2026-08-13), and Zotero already keeps five
-    rotating daily copies of it beside the original (`zotero.sqlite.bak` .. `.4.bak`).
-    Copying it per call spends ~330 MB duplicating what already exists.
+  * `zotero.sqlite` is hundreds of MB (`ls -l ~/Zotero/zotero.sqlite`), and Zotero
+    already keeps rotating daily copies beside it (`zotero.sqlite.bak`, `.1.bak`, ...).
+    Copying it per call duplicates what already exists.
   * restoring such a copy is not an undo anyone can safely take: it requires closing
     Zotero and reverts every unrelated change since the copy was made. Taken while
     Zotero runs it also needs its `-journal` alongside to be coherent at all.
 
 So "back up before mutating" is honoured per-operation, by recording the state the
 write is about to overwrite plus the call that reverses it. `copy_database` is still
-here for a caller who wants the 329 MB snapshot, with the cost stated.
+here for a caller who wants the full snapshot, with the cost stated.
 
 WHICH OPERATIONS GET A MANIFEST, AND WHY NOT ALL OF THEM
 -------------------------------------------------------
@@ -54,11 +54,9 @@ def write_manifest(
 ) -> str:
     """Write one manifest and return its path.
 
-    `journal_dir=None` resolves `DEFAULT_JOURNAL_DIR` at CALL time -- the same trap as
-    the transport URLs, and it bit for real: with the constant bound as a default
-    ARGUMENT, the test suite could not be redirected off the shared directory and wrote
-    216 manifests into it, which is exactly the noise that makes a write journal useless
-    as an audit trail of real writes.
+    `journal_dir=None` resolves `DEFAULT_JOURNAL_DIR` at CALL time, not as a default
+    argument, so redirecting the constant (as the test suite does) takes effect and test
+    manifests stay out of the shared journal.
 
     `before` is whatever the operation is about to overwrite, in whatever shape that
     operation's undo needs -- deliberately not a fixed schema, because a tag
@@ -101,13 +99,8 @@ def copy_database(dest_dir: str | None, db_path) -> dict:
     every unrelated change made since it was taken.
 
     `dest_dir=None` resolves `DEFAULT_JOURNAL_DIR` here, exactly as `write_manifest`
-    does, and for two reasons beyond symmetry. It was a real crash: every verb passes
-    its own `journal_dir` straight through, and that parameter defaults to None, so
-    `trash_items(keys, copy_db=True)` -- the documented way to ask for the snapshot --
-    reached `os.makedirs(None)` and raised TypeError AFTER the manifest was written and
-    BEFORE the write was sent. Resolving it here also means the test fixture's redirect
-    of the constant covers the database copy too; resolving it at the call site would
-    leave a 329 MB file landing in the shared directory during a test run.
+    does: every verb passes its own `journal_dir` (default None) straight through, and the
+    test fixture's redirect of the constant must cover the database copy too.
     """
     dest_dir = dest_dir or DEFAULT_JOURNAL_DIR
     os.makedirs(dest_dir, exist_ok=True)
@@ -134,12 +127,6 @@ class FileJournal:
     implementation and still importable. This class only gives the application layer
     something to hold that is not an import.
 
-    ⚠ This used to add "and still what the tests exercise directly". Measured 2026-08-20:
-    NO test calls `write_manifest` or `copy_database` directly — every path goes through
-    `session.journal`. The separation is still right (an adapter method and the logic it
-    adapts are different things), but it is not earning a testability argument, so that
-    argument is removed rather than left standing as a reason nobody checked.
-
     Satisfies the port STRUCTURALLY -- it does not import it. That is what keeps the
     dependency pointing one way: the port describes the need, and infrastructure happens
     to meet it without ever naming it.
@@ -156,9 +143,7 @@ class FileJournal:
         inverse: str | None = None,
         journal_dir: str | None = None,
     ) -> str:
-        # Fall back to THIS journal's directory, not the module default: undo reads
-        # `journal_dir or journal.default_dir` (replay.list_entries), so writing anywhere
-        # else lost the history of any journal built with its own directory.
+        # Default to THIS journal's directory, the one undo reads (replay.list_entries).
         return write_manifest(
             op, before=before, inverse=inverse, journal_dir=journal_dir or self.default_dir
         )

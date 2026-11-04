@@ -72,19 +72,10 @@ class ZoteroAnnotationStore:
         with zero annotations) so the Obsidian inserter can offer a full-library
         fuzzy search.
 
-        ⚠ THIS USED TO HIDE 5 OF 18. The query started from `items parent` and required
-        `att.contentType = 'application/pdf'`, so it dropped two whole shapes:
-
-            4 × text/html   annotated web snapshots, 77 annotations between them
-            1 × PDF         a STANDALONE attachment, filtered out by the parent JOIN
-
-        Zotero annotates snapshots and EPUBs, not only PDFs, and an attachment with no parent
-        is its own source rather than no source. The verb an agent reaches for to audit
-        annotation coverage was reporting a clean library while hiding the interesting rows —
-        including the second half of a duplicated paper.
-
-        The type is now CARRIED (`ZoteroSource.content_type`) rather than filtered on: a
-        caller wanting only PDFs can still say so, and one that does not is no longer lied to.
+        Every content type, and standalone attachments too: Zotero annotates snapshots and
+        EPUBs, not only PDFs, and an attachment with no parent is its own source rather than
+        no source. The type is CARRIED (`ZoteroSource.content_type`) rather than filtered on,
+        so a caller wanting only PDFs can still say so. History: docs/history/sqlite-reads.md.
         `list_pdfs` still restricts to PDFs on purpose — it enumerates the PDF corpus for
         `omni-rag`, which is a different question.
         """
@@ -170,12 +161,8 @@ class ZoteroAnnotationStore:
     def _connect(self) -> sqlite3.Connection:
         """Open through the ONE opener, and remember which mode answered.
 
-        ⚠ This used to hardcode `immutable=1` and probe nothing, which made it the only
-        sqlite reader in the package not going through `connect.open_readonly` -- while
-        `read/__init__.py` claimed every read reports the mode that served it. Two
-        consequences, both real: an annotation read could never be a live read even when
-        Zotero was closed and `mode=ro` would have succeeded, and a caller had no way to
-        learn it had been handed a point-in-time snapshot.
+        Through `connect.open_readonly` like every other reader, so an annotation read is live
+        whenever `mode=ro` succeeds and a caller can learn when it was served a snapshot.
 
         `last_read_mode` rather than a changed return type: these methods return plain
         lists that several callers unpack positionally.

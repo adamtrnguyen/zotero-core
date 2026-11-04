@@ -10,12 +10,9 @@ Narrower than the class that implements it, on purpose. A port copied from an
 implementation is just the implementation with extra steps; this one states what the
 application actually depends on, so widening it is a visible decision.
 
-⚠ WIDENED 2026-08-20, and this is that visible decision. `pdf_attachments` and
-`trashed_count` are read by the READ facade, not by any write gate. They are here rather
-than in a second item port because two ports over one class, distinguished only by which
-consumer happens to call them, is bookkeeping rather than design — and because `omni-rag`
-already consumes `pdf_attachments` through this same store. Still eight methods against a
-class with more.
+`pdf_attachments`, `trashed_count` and `trashed_items` are read by the READ facade, not by
+a write gate. They sit here rather than in a second item port because two ports over one
+class, split only by which consumer calls them, is bookkeeping rather than design.
 """
 
 from __future__ import annotations
@@ -29,10 +26,8 @@ class Catalogue(Protocol):
     """Read-only access to the Zotero catalogue, as the write gates use it."""
 
     #: Where the database is — `copy_database` needs it for the pre-write backup.
-    #: ⚠ `Path`, NOT `str | Path`. A Protocol ATTRIBUTE is invariant, so declaring the
-    #: wider union means an implementation offering only `Path` does not satisfy it —
-    #: which `ty` caught against `ZoteroItemStore`. A port states what implementations
-    #: provide; widening it here would have made it unimplementable.
+    #: `Path`, NOT `str | Path`: a Protocol ATTRIBUTE is invariant, so the wider union
+    #: would not be satisfied by an implementation offering only `Path`.
     db_path: Path
     busy_timeout_ms: int
 

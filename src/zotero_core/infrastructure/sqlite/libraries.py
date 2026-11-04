@@ -8,9 +8,7 @@ and items into personal counts. That default is right, and it is also invisible:
 way to list libraries, a caller cannot tell "you have nothing" from "you are looking in
 the wrong library".
 
-This is not hypothetical here. Measured 2026-08-19: seven libraries, six of them groups,
-four of those non-empty -- 109 items and 10 collections outside the user library, all old
-coursework (ENGE1215_A4, D7 resources, A4_U2 Project, companionbot3000).
+This library does hold non-empty group libraries; `list_libraries` shows which.
 
 `item_count` counts LIVE items, matching every other count in this layer, and counts
 every item type rather than only top-level ones -- it is a "is there anything in here"

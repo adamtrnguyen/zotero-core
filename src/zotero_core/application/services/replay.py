@@ -248,12 +248,8 @@ def undo(
             would_call=plan,
         )
 
-    # ⚠ WAS `verb(*args, **{**kwargs, **injected})`, whose comment read: "the injected
-    # transports/store are for tests; a real caller passes nothing and the verb builds its
-    # own session". Verbs no longer build their own anything -- the session is required and
-    # comes from the caller, so the replayed verb runs against exactly the collaborators the
-    # undo itself was given. A replay that silently built a DIFFERENT session than the
-    # caller's would be replaying against another database.
+    # The replayed verb runs on the caller's session, exactly the collaborators the undo was
+    # given: a replay that built its own session could be replaying against another database.
     result = verb(*args, **kwargs, session=session)
     return ok(
         "undo",

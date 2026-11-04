@@ -54,11 +54,9 @@ class ToolSpec:
 class WriteToolSpec(ToolSpec):
     """A write tool, which additionally declares WHICH PLUGIN performs it.
 
-    Declared because the transport was previously hardcoded three times per verb,
-    independently and unlinked: what `require_zotero(needs=...)` demands, what
-    `session.<name>.call/post` invokes, and the literal `"transport": "..."` in the result.
-    Nothing asserted the three agreed, so a verb could demand one plugin, use another and
-    report a third.
+    Declared once, so what the verb demands, what it invokes and the `"transport"` it
+    reports cannot disagree: a verb must not demand one plugin, use another and report a
+    third.
 
     `"both"` is preflight, which probes each separately on purpose; `"none"` is a verb that
     touches no plugin at all.
@@ -95,11 +93,8 @@ def dispatch(
 
     unknown = sorted(set(arguments) - set(spec.properties))
     if unknown:
-        # REFUSED, not dropped, and both adapters had a reason. On the read side a
-        # misspelled `include_annotaions` used to vanish and hand back the default. On the
-        # write side a caller passing `journal_dir` or `store` would get a silent no-op on
-        # the argument it cared about, and one misspelling `force` would get the refusal it
-        # was trying to bypass.
+        # REFUSED, not dropped: a misspelled read argument would hand back the default, and
+        # a misspelled `force` on a write would get the refusal it was trying to bypass.
         raise ValueError(f"{name} does not accept {unknown} (accepted: {sorted(spec.properties)})")
 
     missing = [key for key in spec.required if key not in arguments]

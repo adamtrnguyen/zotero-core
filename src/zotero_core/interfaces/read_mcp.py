@@ -2,31 +2,14 @@
 
 ONE TABLE, NOT TWO LISTS
 ------------------------
-Tools are declared once, in `TOOLS`, and both the schema and the dispatch derive from
-it. This adapter used to be a 3-place change per tool -- a `types.Tool(...)` literal
-inside `list_tools()`, an `if name == ...` branch in `call_core()`, and hand-written
-`arguments.get()` coercion inside that branch -- with nothing checking that the two
-lists agreed about names, and no rejection of undeclared arguments: a misspelled
-`include_annotaions` was silently dropped and the caller got the default.
+Tools are declared once, in `TOOLS`, and both the schema and the dispatch derive from it,
+so adding a tool is one entry and an undeclared argument is refused rather than silently
+dropped (`tool_spec.dispatch`). The write adapter follows the same shape.
 
-The sibling write adapter solved this first and said why: "two copies of one fact
-is the defect this package was built to end." The read adapter had 6 tools and never got
-the refactor, which is also why it grew none.
-
-WHAT IS NEW HERE (2026-08-19)
------------------------------
-Tools that were implemented and unreachable. `read/items.py` and
-`read/duplicates.py` had SEVEN public methods between them and not one was exposed from
-CLI or MCP, so an agent could not read an item's type, fields, creators or tags, and
-could not ask "is this already in the library" without attempting a create and parsing
-the refusal.
-
-Collection reads landed next (`read/collections.py`), including the inverse -- which
-collections an item is in -- that nothing answered before.
-
-Search followed (`read/search.py`), including FUZZY metadata matching, which nothing in
-the stack had: Zotero's own search is substring-only and returns zero for a query with
-one typo.
+Item, collection and search reads all reach agents through this table: an agent can read
+an item's type, fields, creators and tags, ask "is this already in the library" without
+attempting a create, and search with FUZZY metadata matching, which Zotero's own
+substring search does not offer. History: docs/history/mcp-surface.md.
 """
 
 from __future__ import annotations
@@ -49,21 +32,15 @@ from zotero_core.interfaces.tool_spec import dispatch as _dispatch
 
 SERVER_NAME = "zotero-context"
 
-# Derived from the domain enum, not transcribed. This was a hand-maintained tuple whose
-# own comment asked to be kept in step by hand -- a promise no comment can keep.
+# Annotation type names come from the domain enum (`ANNOTATION_TYPE_NAMES`), not a copy.
 
 
 def _context_from_env() -> ZoteroContext:
     """The default context for a server nobody handed one to.
 
-    ⚠ THIS REPLACES A MODULE-GLOBAL SINGLETON. `_CTX` was built lazily on first use and
-    cached forever, which made it unreachable from a caller: the only way to point this
-    adapter anywhere was an environment variable, and the only way for a TEST to substitute
-    one was `monkeypatch.setattr(read_mcp, "_CTX", ...)` -- five sites did exactly that.
-
-    Building per call is not the waste it looks: a context holds paths, URLs and ints and
-    opens no connection, so there is nothing to cache. Every store opens its own connection
-    per query and always did.
+    Built per call, never cached in a module global, so a caller or test passes its own via
+    `call_read(ctx=...)`. Not wasteful: a context holds paths, URLs and ints and opens no
+    connection; every store opens its own connection per query.
 
     The environment variables stay, because they are how the MCP registration points this at
     a copy of the database, and they are read HERE rather than inside the facade -- reading
@@ -645,15 +622,12 @@ TOOLS: tuple[_ToolSpec, ...] = (
 
 _BY_NAME = {spec.name: spec for spec in TOOLS}
 
-# A locked database, a missing key and a closed Zotero used to be indistinguishable:
-# every failure flattened to {"ok": false, "error": str(exc)} with no code to branch on.
+# Every failure gets a `code` to branch on, so a locked database, a missing key and a
+# closed Zotero are distinguishable.
 _CODES: tuple[tuple[type[BaseException], str], ...] = (
     (ZoteroBridgeError, "bridge_unreachable"),
-    # ⚠ WAS `(ZoteroAnnotationError, "annotation_read_failed")`. That alias resolved to
-    # `ZoteroReadError`, which every store raises, so a missing database reached through
-    # `collection_tree` or `list_libraries` was reported to the client as an ANNOTATION
-    # failure. Same class, honest name, and the code now says what actually happened --
-    # which is the same thing `sqlite3.OperationalError` means, so they share it.
+    # Every store raises `ZoteroReadError`, so its code names the database, not a store;
+    # `sqlite3.OperationalError` means the same thing and shares it.
     (ZoteroReadError, "database_unavailable"),
     (sqlite3.OperationalError, "database_unavailable"),
     (ValueError, "bad_arguments"),
@@ -670,9 +644,8 @@ def error_code(exc: BaseException) -> str:
 def call_read(name: str, arguments: dict[str, Any], *, ctx: ZoteroContext | None = None) -> Any:
     """Dispatch one tool call. Thin by design -- the logic is shared, see `tool_spec`.
 
-    `ctx` is the injection point this adapter lacked. Defaulting it here is correct in a way
-    the old module global was not: this is the composition root's own layer, the one place
-    allowed to name concrete adapters.
+    `ctx` is the injection point. Defaulting it here is correct: this is the composition
+    root's own layer, the one place allowed to name concrete adapters.
     """
     return _dispatch(
         _BY_NAME,
@@ -692,10 +665,9 @@ def run() -> None:
 def render_call(name: str, arguments: dict[str, Any]) -> str:
     """One tool call, rendered. The ONLY part of the server this adapter still owns.
 
-    Every failure becomes data with a `code` a caller can branch on -- "a locked database, a
-    missing key and a closed Zotero used to be indistinguishable", which is what `_CODES`
-    exists for. The write adapter's version differs precisely here, which is why this is the
-    callback and the rest is shared.
+    Every failure becomes data with a `code` a caller can branch on (`_CODES`). The write
+    adapter's version differs precisely here, which is why this is the callback and the
+    rest is shared.
     """
     try:
         return render_json(call_read(name, arguments))

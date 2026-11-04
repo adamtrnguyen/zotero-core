@@ -24,10 +24,9 @@ SNAPSHOT — it tells sqlite the file cannot change, so the journal is ignored.
     SNAPSHOT  the answer may predate a commit that has already happened
     NONE      nothing was read (an empty batch); not a claim about the database
 
-⚠ `str, Enum` and NOT `enum.StrEnum`, which would be the obvious choice: `StrEnum` is
-3.11+ and this package declares `requires-python = ">=3.10"`. The mixin gives the same
-`== "mode=ro"` and `in {...}` behaviour that fourteen existing assertions rely on, and
-`json.dumps` emits the value correctly — verified, not assumed.
+`str, Enum` and NOT `enum.StrEnum`: `StrEnum` is 3.11+ and this package declares
+`requires-python = ">=3.10"`. The mixin gives the same `== "mode=ro"` and `in {...}`
+behaviour the tests assert, and `json.dumps` emits the value.
 
 `__str__` is pinned back to `str.__str__` because the mixin does NOT do it for you: without
 this line `f"{ReadMode.LIVE}"` renders `"ReadMode.LIVE"` rather than `"mode=ro"`. Nothing

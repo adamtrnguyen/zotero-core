@@ -16,11 +16,8 @@ question. `mode=ro` is the honest read: it respects locking and plays back a hot
 rollback journal. But Zotero holds the database locked while it runs, and the
 write path REQUIRES Zotero to be running (that precondition inverts relative to
 Calibre, which requires its GUI closed) -- so in normal operation `mode=ro` raises
-and the `immutable=1` fallback is what actually serves the row. Measured
-2026-08-13 against the live 329 MB database with Zotero 9.0.6 up:
-
-    mode=ro        FAIL OperationalError: database is locked
-    immutable=1    OK  deletedItems=277 items=3405
+and the `immutable=1` fallback is what actually serves the row (the measurement:
+docs/history/sqlite-reads.md).
 
 `immutable=1` tells SQLite the file cannot change, so it skips locking and skips
 hot-journal playback: a point-in-time view of the main file's pages. That is fine
@@ -167,11 +164,8 @@ class ZoteroItemStore:
     def trashed_count(self) -> tuple[int, str]:
         """How many items are in THIS library's trash, and the read mode that served it.
 
-        ⚠ WAS `SELECT COUNT(*) FROM deletedItems` with no library scope, while this file's
-        own docstring three methods down says "Scoped to `library_id` like every other read
-        here". It was the single unscoped read in the package: on a machine with group
-        libraries it answered about all seven while every sibling answered about one, so
-        comparing it against any other count compared two different populations.
+        Scoped to `library_id` like every other read here, so it counts the same population
+        its siblings do.
         """
         conn, read_mode = self._connect()
         try:
@@ -352,10 +346,7 @@ class ZoteroItemStore:
         """Every stored PDF attachment in the library, with its parent's title and collection.
 
         This is the enumeration a corpus builder needs: `(key, path, title, collection)` per PDF.
-        It lives here because ZoteroSuite's rule is that consumers do not duplicate Zotero SQL
-        (README, "Rules of the road") -- omni-rag carried its own copy of this query in a script
-        called `prototype_zotero.py` for months, which is how `omnirag papers ingest` ended up
-        existing with no enumerator behind it at all.
+        It lives here because ZoteroSuite's rule is that consumers do not duplicate Zotero SQL.
 
         The PATH is resolved by globbing the storage folder, NOT by parsing `itemAttachments.path`.
         The stored value is `storage:<filename>`, and the filename on disk can diverge from it;
@@ -366,25 +357,22 @@ class ZoteroItemStore:
         truncated** -- a truncated title silently merges distinct works under one label, which
         is a real defect class in a consumer keying rows on a display string.
 
-        ⚠ Scoped to `library_id` like every other read here, so a group library's PDFs are not
+        Scoped to `library_id` like every other read here, so a group library's PDFs are not
         enumerated into a user-library corpus.
 
-        ⚠ A paper in SEVERAL collections reports the first by NAME, and the `ORDER BY` is
+        A paper in SEVERAL collections reports the first by NAME, and the `ORDER BY` is
         load-bearing. A bare `LIMIT 1` returns whichever row the query plan reaches first, so the
-        answer is arbitrary and can change under a schema or plan change with no data change at
-        all -- and a consumer keying a filter on it (omnirag's `--field`) would see a paper
-        silently move between filters on re-ingest. Measured against the live library: three
-        collections present in omni-rag's index (`Cranberry Lab`, `Energy Lab`, `ENGL 1105`) are
-        no longer what the unordered pick returns for those papers. Alphabetical is arbitrary too,
-        but it is STABLE, which is the property that matters.
+        answer can change under a plan change with no data change, and a consumer keying a
+        filter on it (omnirag's `--field`) would see a paper move between filters on re-ingest.
+        Alphabetical is arbitrary too, but it is STABLE, which is the property that matters.
 
-        ⚠ Returns duplicates as-is. Zotero legitimately holds the same paper under two attachment
+        Returns duplicates as-is. Zotero legitimately holds the same paper under two attachment
         keys, and which copy to keep is the CONSUMER's policy (title, date, file size), not a read
         layer's. Dedupe downstream.
 
-        ⚠ Excludes an attachment in the trash, but NOT one whose PARENT is trashed -- matching the
-        query this replaced, so the enumeration does not change under consumers mid-migration.
-        Tightening it to the parent is a deliberate change, with a re-ingest behind it.
+        Excludes an attachment in the trash, but NOT one whose PARENT is trashed. Tightening it
+        to the parent changes the enumeration under consumers, so it is a deliberate change
+        with a re-ingest behind it.
         """
         storage = storage_dir or (self.db_path.parent / "storage")
         conn, mode = self._connect()
@@ -438,11 +426,10 @@ class ZoteroItemStore:
         """{baseFieldName: actualFieldName} for one item type. Empty when it maps nothing.
 
         Zotero stores a handful of fields under a name that depends on the item type,
-        with a shared BASE name used to address them generically. `publicationTitle` is
+        with a shared BASE name that addresses them generically. `publicationTitle` is
         the one that bites: on a `conferencePaper` the value lives in
         `proceedingsTitle`, on a `bookSection` in `bookTitle`, on a `webpage` in
-        `websiteTitle` -- ten item types in the live library map that base alone
-        (measured 2026-08-13). A write addressed to the base name lands in the mapped
+        `websiteTitle`. A write addressed to the base name lands in the mapped
         field, so reading the base name back finds nothing and a verifier comparing
         written names against stored names calls a successful write unverified.
 
@@ -517,20 +504,17 @@ class ZoteroItemStore:
     def attachment_info(self, attachment_key: str, *, base_path: str | Path | None = None) -> dict:
         """Where one attachment's file actually is, and whether it is there.
 
-        Exists so a write can verify that a LINKED file resolves. That is not a
-        hypothetical failure mode on this machine: 31 linked attachments currently point
-        at Calibre directories that were renamed, so the items look like they have a PDF
-        and open to an error. Nothing catches that at write time because nothing looked.
+        Exists so a write can verify that a LINKED file resolves: a link to a renamed
+        directory looks like a PDF in the item list and opens to an error.
 
         linkMode: 0 imported file, 1 imported URL (both live under storage/<key>/),
         2 linked file, 3 linked URL (no file at all).
 
-        ⚠ A linked path may be stored as `attachments:<relative>`, relative to Zotero's
+        A linked path may be stored as `attachments:<relative>`, relative to Zotero's
         BASE DIRECTORY -- and that base is NOT in the database. Zotero keeps it in
         `prefs.js` in the profile, which this layer does not read. So a relative path
         cannot be resolved from sqlite alone, and reporting `file_exists: False` for one
-        would be a FALSE NEGATIVE on the majority of this library's attachments (772 of
-        1368 are linked). Pass `base_path` to resolve them; without it such a row comes
+        would be a FALSE NEGATIVE. Pass `base_path` to resolve them; without it such a row comes
         back `file_exists: None` and `relative_to_base: True`, which is "I cannot tell"
         rather than "it is missing".
         """

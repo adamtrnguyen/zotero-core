@@ -17,18 +17,10 @@ from zotero_core.domain.services.identity import is_key
 class ZoteroContext:
     """The read facade: every read an agent or the CLI can ask for, in one object.
 
-    ⚠ THIS USED TO CONSTRUCT ITS OWN COLLABORATORS from a db path and two URLs --
-    `self.items = ZoteroItemStore(zotero_db_path)`, six times over -- which is the same
-    defect the write path had, in the layer that could least afford it: this class is what
-    BOTH the CLI and the MCP adapter wrap, so a caller could not point it anywhere without
-    an environment variable, and a test could not substitute anything at all.
-
-    It also lived in `infrastructure/`, below the layer it belongs to. It is a use case: it
-    composes seven collaborators and applies policy across them (which library to read,
-    whether a string is a key or a citekey, whether a duplicate blocks). None of that is a
-    driver detail.
-
-    Now every collaborator arrives as a port. `interfaces/factory.build_context()` is the
+    A use case, not a driver: it composes eight collaborators and applies policy across them
+    (which library to read, whether a string is a key or a citekey, whether a duplicate
+    blocks). BOTH the CLI and the MCP adapter wrap it, so it constructs nothing itself:
+    every collaborator arrives as a port. `interfaces/factory.build_context()` is the
     one place that decides which real adapters those are.
     """
 
@@ -47,11 +39,8 @@ class ZoteroContext:
         self.bridge = bridge
         self.annotations = annotations
         self.bbt = bbt
-        # ⚠ The item store's ABSENCE was once the whole problem. This class is what both
-        # the CLI and the MCP adapter wrap, so for as long as it held no item store,
-        # `items.py` and `duplicates.py` were unreachable from every agent-facing surface
-        # -- and the gap got filled by a third-party plugin, which is exactly what this
-        # package exists to prevent.
+        # The item store and duplicate finder make item reads reachable from every
+        # agent-facing surface, so no third-party plugin answers "what is in the library".
         self.items = items
         self.collections = collections
         self.search = search
@@ -126,11 +115,8 @@ class ZoteroContext:
     ) -> ReaderContext | None:
         """The active reader with its annotations joined on, or None if nothing is open.
 
-        ⚠ THE `[0] if contexts else None` REDUCTION LIVED IN BOTH ADAPTERS. `read_mcp` and
-        `cli` each called `get_open_reader_context(active_only=True, ...)` and then took the
-        first element themselves -- the same three lines, free to drift, in the two places
-        least able to notice. "Active" is a fact about the library, not about a transport, so
-        the collapse belongs here.
+        The reduction to one reader lives here, not in each adapter: "active" is a fact about
+        the library, not about a transport.
         """
         contexts = self.get_open_reader_context(
             active_only=True,
@@ -180,9 +166,7 @@ class ZoteroContext:
 
         Several queries rather than one because they fan out differently (fields and tags
         are one-to-many, creators are ordered), and a caller almost always wants all
-        four -- an agent deciding what to do next needs the type, and reading creators
-        used to require deliberately triggering a `refusing_to_replace` refusal and
-        parsing `detail.current_creators` out of it.
+        four -- an agent deciding what to do next needs the type and the creators.
 
         `read_mode` travels with the answer. With Zotero running, `mode=ro` loses to the
         rollback journal and `immutable=1` serves a point-in-time snapshot instead; a
@@ -258,9 +242,8 @@ class ZoteroContext:
     def trash_count(self) -> dict:
         """How many items are in the trash, in the same envelope as every other read.
 
-        ⚠ Returned `{"trashed": N}` — no `count`, no `read_mode` — while five of the seven
-        sibling reads returned both. A caller could not tell a live count from a snapshot
-        one, and could not read this envelope the way it reads the others.
+        `count` and `read_mode`, like its siblings, so a caller can tell a live count from a
+        snapshot one.
         """
         count, read_mode = self.items.trashed_count()
         return {"count": count, "read_mode": read_mode}
@@ -317,12 +300,9 @@ class ZoteroContext:
     def collection_tree(self, *, library_id: int | None = None) -> dict:
         """The whole collection tree, nested, with breadcrumb paths and item counts."""
         tree = self._collections_for(library_id).tree()
-        # ⚠ NOT `rows()`, and this is the exception that proves its rule. `rows` derives
-        # `count` from the payload it is handed, because a `count` that does not describe
-        # the rows beside it is how the two drift. Here the payload is a nested TREE: the
-        # list is the 16 top-level roots while the count is all 84 collections
-        # (`tree.flat()`). Converting this site silently changed 84 to 16 — caught only
-        # because every envelope was captured before the refactor and compared after.
+        # NOT `rows()`, the exception that proves its rule. `rows` derives `count` from the
+        # payload it is handed; here the payload is a nested TREE, the list holds only the
+        # top-level roots, and the count is every collection (`tree.flat()`).
         #
         # `truncated` is tree-specific too. A tree is not a row set, so it keeps its own
         # frame rather than being bent into one.
@@ -475,10 +455,8 @@ class ZoteroContext:
     ) -> dict:
         """Sources carrying annotations, in the standard envelope.
 
-        ⚠ Returned a BARE LIST, which cannot carry a `read_mode` at all — so this was the
-        one read in the package that could not say whether it had been served live or from
-        an `immutable=1` snapshot. The annotation store already recorded it in
-        `last_read_mode`; nothing outside the tests ever read it.
+        An envelope, not a bare list, so it carries the `read_mode` the annotation store
+        recorded in `last_read_mode`.
         """
         sources = self.annotations.get_sources_with_annotations(include_all=include_all)
         if include_citekeys:
@@ -540,15 +518,9 @@ class ZoteroContext:
 def _looks_like_item_key(value: str) -> bool:
     """Is this identifier a key, or something to look up in Better BibTeX?
 
-    ⚠ CHANGED 2026-08-19. This was `len(v) == 8 and v.isalnum() and v.upper() == v`, and
-    `str.isalnum()` is UNICODE-AWARE -- so it accepted full-width Latin, Greek capitals and
-    Roman-numeral characters that the write layer's regex rejects. The two layers disagreed
-    about what a key is: a string could pass here, be treated as a key rather than sent to
-    BBT, and then be refused downstream as malformed.
-
-    It now asks the one shared rule. The consequence is deliberate: input that cannot be a
-    valid key is no longer mistaken for one, and goes to BBT instead -- which is the right
-    place for anything that is not a key.
+    Asks the one shared rule (`domain.services.identity.is_key`), so read and write agree on
+    what a key is: input that cannot be a valid key goes to BBT, the right place for
+    anything that is not a key.
     """
     return is_key(value)
 

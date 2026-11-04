@@ -273,10 +273,10 @@ def _verify_membership(collections, collection_key: str, keys, *, present: bool)
     question is the same one asked in two directions, and splitting it would be two
     places to keep in step.
 
-    ⚠ This REPORTS rather than refuses. Filing an item that is already in a collection,
+    This REPORTS rather than refuses. Filing an item that is already in a collection,
     or unfiling one that was never in it, both succeed in Zotero and are no-ops; making
-    them errors would break calls that work today. What was missing is that the caller
-    could not tell a no-op from a real change -- `move_items_between_collections` refuses
+    them errors would break calls that work today. The report lets a caller tell a no-op
+    from a real change -- `move_items_between_collections` refuses
     the same situation, but only because a silent no-op there produces a WRONG RESULT
     (the items end up filed in the target and never removed from the source) rather than
     merely a pointless one.
@@ -303,7 +303,7 @@ def _verify_gone(collections, collection_key: str) -> dict:
     Every other read-back asks "is the thing I wrote there?"; this asks "is the thing I
     removed gone?", so a hit is the failure and a miss is the success.
 
-    ⚠ A "still there" answer is NOT proof the delete failed. The read layer falls back to
+    A "still there" answer is NOT proof the delete failed. The read layer falls back to
     an `immutable=1` snapshot when Zotero holds the write lock, and a snapshot taken
     before the commit still shows the collection. Reported as `unverified` with the read
     mode attached rather than as a failure -- claiming a successful delete failed sends
@@ -492,12 +492,9 @@ def move_items_between_collections(
 
     WHY THIS EXISTS
     ---------------
-    There was no move. A caller did `add_items_to_collection` then
-    `remove_items_from_collection` -- two calls, each with its own gates, only the
-    second journalled, and NO rollback. If the remove failed the items were left in
-    BOTH collections, silently, and the caller had a success envelope from the add to
-    reassure them. (That is not hypothetical: this document's own author left an item in
-    two collections that way while testing the surface.)
+    `add_items_to_collection` then `remove_items_from_collection` is two calls, only the
+    second journalled, and NO rollback: if the remove fails the items are left in BOTH
+    collections, silently, behind a success envelope from the add.
 
     WHAT MAKES IT SAFE
     ------------------

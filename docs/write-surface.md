@@ -1,12 +1,5 @@
 # zotero-core
 
-> ℹ **Merged 2026-08-19.** This was `writes/README.md`, when the write surface was its own
-> distribution. It became the `zotero_core.write` layer, and on 2026-08-20 that layer became
-> **`zotero_core.application`** — the verbs live in `application/services/`, the transports
-> and the journal moved to `infrastructure/`, and the error vocabulary to `domain/errors.py`.
-> `src/zotero_core/write/` no longer exists.
-
-
 The one CRUD surface for the local Zotero library. Everything that mutates Zotero
 goes through here, and **the caller never picks a transport.**
 
@@ -19,9 +12,8 @@ from zotero_core.application.services.verbs import (
     trash_items,
 )
 
-# ONE session per operation, assembled by the composition root. Every verb requires it —
-# they used to default to `linker or LinkerClient()` internally, which is what put a
-# concrete adapter inside the application layer.
+# ONE session per operation, assembled by the composition root. Every verb requires it, so
+# no concrete adapter is constructed inside the application layer.
 session = build_write_session()
 
 try:
@@ -57,26 +49,13 @@ with `trash-items` and `restore-items` registered and **zero** consumers.
 So this is not a delete client. A module owning only Delete would have made it four
 scattered places instead of three.
 
-## Where it lives, and what `core/` is
+## Where it lives
 
-**`core/` is not the single Zotero owner. It is the read half; this is the write
-half.** ⚠ THE DIRECTION INVERTED on 2026-08-20: `interfaces > infrastructure > application > domain`,
-and `core/`'s "read-only forever" contract is **unamended**.
-
-The alternative was amending that contract so one package owned everything, with
-calibre-core as precedent — its docstring says an earlier version "over-read its own
-reason: the argument is against raw SQL, not against owning the gate." Sound there,
-and it does not transfer, for three reasons spelled out in
-`src/zotero_core/write/__init__.py`: ZoteroSuite never conflated the two rules (they are
-separate README bullets, so there is no tangle to undo); `zotero_core.infrastructure` has
-`dependencies = []` and feeds an Obsidian JSON CLI, while a CRUD surface needs two
-HTTP clients; and every write precondition is a read, so the direction is naturally
-acyclic.
-
-The suite-level **routing** rule in `../README.md` *was* amended, because it was
-already stale — it said all mutation goes through cookjohn, untrue since `linker/`
-shipped write endpoints, and never true for linked attachments, which cookjohn
-cannot create at all.
+One package owns reads and writes. The layers are `interfaces > infrastructure > application >
+domain` (`.importlinter`): the verbs live in `application/services/`, the transports and the
+journal in `infrastructure/`, the error vocabulary in `domain/errors.py`. Every write
+precondition is a read, so the direction is acyclic, and `zotero.sqlite` is never opened
+read-write. How this came to be one package: `docs/history/package-structure.md`.
 
 ## The surface
 
@@ -141,10 +120,6 @@ the same pin core uses (`mcp>=1.26.0,<2` — 2.0.0 removed `@server.list_tools()
 is the promise this package makes — `omni-rag` imports it inside ARC entrypoints, where an
 async runtime pulled in by a tag verb is a real cost.
 
-⚠ This used to say "because `cookjohn.py` is stdlib-only so it can be vendored into
-`calibre-zotero-jump`". Nothing is vendored there (checked 2026-08-19), and that module
-imports `zotero_core.domain.*` anyway.
-
 ## What is enforced
 
 | Gate | Refuses when | `code` |
@@ -199,8 +174,8 @@ it. Creates and pure additions do not, because the inverse of an addition is a
 removal the caller can already express.
 
 This is deliberately not a database copy, which is what calibre-core does.
-`zotero.sqlite` is 329 MB (measured 2026-08-13) and Zotero already keeps five
-rotating daily copies beside it, so a per-call copy duplicates what exists — and
+Zotero already keeps rotating daily copies of `zotero.sqlite` beside it, so a per-call
+copy duplicates what exists — and
 restoring one requires closing Zotero and reverts every unrelated change since.
 `copy_db=True` still takes the snapshot (database *and* rollback journal).
 
@@ -212,53 +187,7 @@ that trashing an item leaves its row intact. `delete_collection` deletes a *fold
 not its contents — items stay in the library unless you explicitly opt into the
 cascade.
 
-## Verified live, 2026-08-13
-
-Against Zotero 9.0.6, zotero-linker 0.3.0, zotero-integrated-mcp 1.1.0, on a
-throwaway item created for the purpose (`UUV3HWD2`, linked attachment `MAQ3PAG9`):
-
-- **`trash-items` works on an ATTACHMENT.** This was the open question — nobody had
-  run it. A linked-file attachment trashed and restored cleanly.
-- **Trashing a parent does NOT give children their own `deletedItems` row.** The
-  child still read `trashed=False`, so `restore_items(parent)` restores the whole
-  thing and no fan-out is needed. An earlier draft assumed the opposite and was wrong.
-- **`immutable=1` reflects a just-committed write.** This matters because Zotero holds
-  the database locked while it runs, so the snapshot is the only read available:
-
-  ```
-  mode=ro        FAIL OperationalError: database is locked
-  immutable=1    OK  deletedItems=277 items=3405
-  ```
-
-- **Duplicate detection fires on real data.** A `create_item` carrying a DOI already
-  in the library (`10.3390/ijerph17124480`, passed in URL form against a bare stored
-  value) refused with `duplicate_item` and created nothing.
-  `create_collection("calibre")` refused against the existing `ZDUFVSBC`.
-- **Two verification bugs were found by running it and are now fixed.** Zotero
-  *normalises* field values — writing `date="2026"` comes back stored as
-  `"2026-00-00 2026"` — so strict equality reported a successful write as
-  "unverified" and blamed the snapshot read. And a field that did not previously
-  exist was recorded as having held `""`, producing an `undo_call` that would write
-  empty strings instead of removing the field. Both are now distinguished:
-  `normalized_by_zotero` vs `disagreed`, and `fields_added` vs `fields_overwritten`
-  with `undo_call: None` when no inverse is expressible.
-- **A third verification bug: Zotero also rewrites the field NAME.** cookjohn writes
-  through Zotero's base-field mapping, so `publicationTitle` on a `conferencePaper` is
-  stored as `proceedingsTitle` (`bookTitle` on a `bookSection`, `websiteTitle` on a
-  `webpage` — ten types map that base alone). `write_metadata` answered `ok`, the value
-  was in the library, and reading back the name that was *written* found nothing — so a
-  successful venue write reported `disagreed` and sent the caller to check Zotero by
-  hand. The mapping is read from the database's own `baseFieldMappingsCombined` rather
-  than hard-coded, and a relocated field now reports `mapped_to_type_field` — kept
-  separate from `normalized_by_zotero` because the value is intact and it is the *name*
-  that moved, which is what a caller re-reading the field needs to know.
-- **`copy_db=True` crashed, and `ty` found it, not the suite.** Every verb passes its own
-  `journal_dir` straight through and that parameter defaults to None, so the documented
-  way to ask for the snapshot reached `os.makedirs(None)` — after the manifest was
-  written and before the write was sent. Both existing tests passed an explicit
-  `journal_dir`, which is exactly why it survived. `copy_database` now resolves
-  `DEFAULT_JOURNAL_DIR` itself, as `write_manifest` always did.
-- The library returned to its starting state; only the throwaway remains, in the trash.
+Live runs against the real library, and the bugs they found: `docs/history/write-verification.md`.
 
 ## Tests
 

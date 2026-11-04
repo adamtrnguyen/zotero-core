@@ -123,10 +123,9 @@ class ZoteroCollectionStore:
     def for_library(self, library_id: int) -> ZoteroCollectionStore:
         """A sibling reading the SAME database, scoped to another library.
 
-        Satisfies the matching port. The read facade used to do this itself, constructing
-        a concrete store from a stashed db path -- an application-layer facade building an
-        adapter. Asking the current adapter for a sibling keeps "how do I make another one
-        of me" with the class that knows, and returns `self` for the library it already reads.
+        Satisfies the matching port, so the application-layer facade never constructs an
+        adapter: "how do I make another one of me" stays with the class that knows, and
+        returns `self` for the library it already reads.
 
         Cheap on purpose: constructing one holds paths and an int, and opens nothing.
         """
@@ -184,13 +183,9 @@ class ZoteroCollectionStore:
         Substring, not fuzzy -- the fuzzy matcher belongs with the rest of search and is
         not worth a second implementation here.
 
-        ⚠ RETURNS THE READ MODE, which it used to throw away. It walks `self.tree()`, which
-        already carries one, so the information was in hand and dropped: `find_collections`
-        was the only collection read whose envelope had no `read_mode`, while
-        `collection_tree` returned one under the SAME `collections` key. A caller could not
-        tell whether a `find` had been served live or from an `immutable=1` snapshot -- and
-        under a snapshot, "no collection by that name" and "not visible yet" are the same
-        answer. The `(rows, read_mode)` shape matches what `search`'s methods already return.
+        Returns the READ MODE with the rows, the `(rows, read_mode)` shape `search` uses: under
+        an `immutable=1` snapshot, "no collection by that name" and "not visible yet" are the
+        same answer, and only the mode tells them apart.
         """
         tree = self.tree()
         needle = name.strip().casefold()

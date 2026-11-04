@@ -28,16 +28,11 @@ made -- so the whole check is three queries over a few thousand rows.
 
 ON THE NORMALISER
 -----------------
-`_norm_title` is `domain.policy.normalize_title` -- shared with the search layer since
-2026-08-19, so the two cannot drift.
+`_norm_title` is `domain.policy.normalize_title`, shared with the search layer so the two
+cannot drift. Kana voicing marks are preserved there (phonemic); Latin accents fold
+(decoration).
 
-⚠ This paragraph used to say the normaliser "cannot import" calibre-core's better
-`dedup_key` and that "a CJK-titled paper will normalise less well here". The specific
-defect it was describing -- NFKD splitting kana voicing marks so 'が' and 'か' compared
-EQUAL -- is fixed in `domain/services/policy.py`; those marks are preserved because they are
-phonemic, while Latin accents still fold because they are decoration.
-
-What remains true: this is still not calibre-core's `dedup_key`, which additionally
+This is still not calibre-core's `dedup_key`, which additionally
 handles Hangul Jamo decomposition and ordinal-before-"edition" stripping. If
 cross-library title matching becomes load-bearing -- which is what calibre2zotero does
 -- the normaliser is the thing to extract into a shared package rather than reimplement

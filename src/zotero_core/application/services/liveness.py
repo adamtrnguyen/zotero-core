@@ -34,10 +34,8 @@ from zotero_core.domain.errors import Reason, WriteBlocked
 from zotero_core.domain.ports.write_transport import Cookjohn, Linker
 from zotero_core.domain.ports.zotero_probe import ZoteroProbe
 
-# ⚠ `zotero_is_running` AND `ZOTERO_SERVER_URL` LEFT THIS MODULE. The function called
-# `urllib.request.urlopen` directly, which put network I/O in the application layer and
-# left the test suite no way in except `monkeypatch.setattr(".. .zotero_is_running", ...)`
-# at three sites. Both now live in `infrastructure/probe.py` behind `ZoteroProbe`.
+# Network I/O is not here: the "is Zotero running" probe lives in `infrastructure/probe.py`
+# behind the `ZoteroProbe` port.
 
 
 def require_zotero(

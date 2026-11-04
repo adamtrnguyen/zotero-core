@@ -1,9 +1,8 @@
 """Text policy: normalising a title, and scoring how well two strings match.
 
-Pure. No sqlite, no network, no mcp -- enforced by the `domain-is-pure` contract, which
-is the point of this layer existing: the normaliser lived in `read/duplicates.py` as a
-private, and the search layer needed the same one. Two copies of a normaliser is how
-'Hébert' stops matching 'Hebert' in one place and not the other.
+Pure. No sqlite, no network, no mcp -- enforced by the `domain-is-pure` contract. Dedupe
+and search share this one normaliser; two copies is how 'Hébert' stops matching 'Hebert'
+in one place and not the other.
 
 WHY NOT rapidfuzz
 -----------------
@@ -11,10 +10,6 @@ WHY NOT rapidfuzz
 matching. It is the better library. It is also a C extension, and this package has
 `dependencies = []` on purpose. `difflib` is stdlib and gets most of the way; see
 `fuzzy_score` for the algorithm and its measured behaviour.
-
-⚠ This used to justify the constraint with "`calibre-zotero-jump` vendors part of it into
-Calibre's embedded Python". It vendors NOTHING from this package -- its `ui.py` contains no
-fuzzy or normaliser code at all, and its `build.sh` zips three files, none of them ours.
 """
 
 from __future__ import annotations
@@ -35,12 +30,9 @@ def normalize_title(title: str) -> str:
 
     NFKD then dropping combining marks is what makes 'Hébert' match 'Hebert'.
 
-    ⚠ CHANGED 2026-08-19: kana voicing marks are now PRESERVED. The previous version
-    dropped every combining mark, so 'が' collapsed to 'か' and two different Japanese
-    words compared equal. `read/duplicates.py` documented this as a known limitation and
-    noted calibre-core's version does not have it. Since this normaliser now also backs
-    search, an over-eager fold is a wrong search result rather than only a wrong dedupe
-    verdict, so it is fixed rather than inherited.
+    Kana voicing marks are PRESERVED (`_PHONEMIC_MARKS`): dropping them collapses 'が' to
+    'か', so two different Japanese words would compare equal, which is a wrong search
+    result as well as a wrong dedupe verdict.
     """
     if not title:
         return ""
@@ -99,11 +91,8 @@ def score_tokens(query_tokens: list[str], candidate_normalized: str) -> float:
     # A phrase match is a strong signal, but not perfect: "learning" is inside "machine
     # learning" and must not outrank the exact title.
     #
-    # ⚠ CHECKED ON TOKENS, not characters. A plain `joined in candidate_normalized` also
-    # matches ACROSS WORD BOUNDARIES, and that is not theoretical: searching this library
-    # for "ZZ Test" scored 0.97 against "...Static Analysis and Fuzz Testing", because
-    # "zz test" really is a substring of "fuzz testing". Found by an end-to-end run, not
-    # by review -- the character form looks obviously correct until you see it hit.
+    # Checked on TOKENS, not characters: a plain `joined in candidate_normalized` matches
+    # across word boundaries ("zz test" is a substring of "fuzz testing").
     window = len(query_tokens)
     if any(
         candidate_tokens[i : i + window] == query_tokens

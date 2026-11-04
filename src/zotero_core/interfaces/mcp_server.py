@@ -2,11 +2,9 @@
 
 WHY ONE SERVER
 --------------
-The package merged on 2026-08-19, but it kept two entry points (`zotero-core-read-mcp`,
-`zotero-core-write-mcp`), and ZotLink stayed a third. An agent therefore saw three Zotero
-servers -- `zotero-context`, `zotero-writes`, `zotlink` -- for one library. `pyproject.toml`
-already named the end state: a single server with a `--read-only` switch, "once the read
-surface is complete". It is complete; this is that server.
+One library, one server: an agent sees one Zotero server, and `--read-only` is the switch
+for a context that must not write. History of the three servers this replaced:
+docs/history/mcp-surface.md.
 
 Nothing about the gates moves. A process boundary was never what protected a write: every
 write verb runs its own preflight, duplicate refusal, journal and read-back, and agent
@@ -14,8 +12,7 @@ permissions are granted per TOOL, not per server. This module only concatenates 
 tool tables and routes each call to the adapter that owns it, so each keeps its own error
 envelope -- the read side's `{ok, code, error}`, the write side's `WriteBlocked` detail.
 
-`--read-only` serves the read table alone. It is the mode for a context that must not write,
-which is the one job the separate read server used to do.
+`--read-only` serves the read table alone. It is the mode for a context that must not write.
 
 `read_mcp` and `write_mcp` stay as modules: they own their tables and envelopes. Their own
 entry points are gone, so there is exactly one way to start a Zotero server.

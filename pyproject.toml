@@ -6,29 +6,21 @@ requires-python = ">=3.10"
 # Still zero. The sqlite adapters are stdlib sqlite3; both write transports are stdlib
 # urllib + json. That is load-bearing, not incidental: `omni-rag` imports the read path
 # inside its ARC entrypoints, so an async runtime pulled in by a tag verb is a real cost.
-# ⚠ This comment used to justify the rule by claiming `calibre-zotero-jump/ui.py` vendors
-# `transports/cookjohn.py` verbatim. It does NOT (checked 2026-08-19): its build.sh zips
-# three files, none of them cookjohn, and ui.py is an independent reimplementation.
 dependencies = []
 
 [project.optional-dependencies]
 mcp = [
   # <2 deliberately. mcp 2.0.0 is a different API: no `@server.list_tools()` decorator
-  # and no `mcp.server.fastmcp`. Both adapters target 1.x, and an unpinned `>=1.0.0`
-  # once resolved 2.0.0 and crashed the server at import with `'Server' object has no
-  # attribute 'list_tools'` -- which is how the read adapter sat broken long enough
-  # never to be registered and never noticed. calibre-mcp pins the same way for the
-  # same reason. Revisit only by porting both adapters.
-  #
-  # This pin used to exist TWICE, in two pyprojects, with two copies of this comment.
-  # Collapsing that was part of the point of merging.
+  # and no `mcp.server.fastmcp`. Both adapters target 1.x; an unpinned `>=1.0.0` resolves
+  # 2.0.0 and crashes the server at import. calibre-mcp pins the same way for the same
+  # reason. Revisit only by porting both adapters.
   "mcp>=1.26.0,<2",
 ]
 
 [project.scripts]
 zotero-core = "zotero_core.interfaces.cli:main"
 # ONE server: reads, gated writes and paper saving. `--read-only` serves the reads alone,
-# for a context that must not write -- the job the separate read server used to do.
+# for a context that must not write.
 zotero-core-mcp = "zotero_core.interfaces.mcp_server:run"
 
 [dependency-groups]

@@ -1,9 +1,7 @@
 """Opening zotero.sqlite read-only, and saying which mode answered.
 
-ONE opener for the whole read layer. This logic lived as `ZoteroItemStore._connect`,
-and `duplicates.check_duplicate` already reached across to call it -- the package's only
-cross-module private access. `collections` and `search` would have been the third and
-fourth, so it is a module now rather than a private that everyone pretends not to touch.
+ONE opener for the whole read layer: every store opens through `open_readonly`, so every
+read reports the mode that served it.
 
 WHY THE MODE IS RETURNED
 ------------------------
@@ -30,26 +28,11 @@ from zotero_core.domain.read_mode import ReadMode
 class ZoteroReadError(RuntimeError):
     """The database could not be opened read-only, or is not where we were told.
 
-    Defined HERE, in the module that raises it, rather than in `annotations.py` where it
-    used to live. That location was an accident of history and it inverted the
-    dependency: `connect` is the lowest read module and every other reader depends on
-    it, so importing an exception upward from `annotations` made a cycle the moment
-    `annotations` needed the shared opener.
-
-    ⚠ THE `annotations.ZoteroAnnotationError` ALIAS IS GONE, and removing it fixed a
-    live mislabel rather than just tidying a name. This docstring already admitted the
-    alias "was always a misnomer: it is raised for 'cannot open the database', which has
-    nothing to do with annotations" -- and then kept it because it was "not worth
-    breaking". What that hid: `read_mcp._CODES` listed
-    `(ZoteroAnnotationError, "annotation_read_failed")`, which READS as annotation-scoped
-    but, being this class, matched every failure from all seven stores. Measured
-    2026-08-19 against a missing database:
-
-        collection_tree  -> ZoteroReadError -> code 'annotation_read_failed'
-        list_libraries   -> ZoteroReadError -> code 'annotation_read_failed'
-
-    An alias is not free when something branches on the type: it makes a wrong branch
-    look right at the call site.
+    Defined HERE, in the lowest read module, because every other reader depends on this
+    one; defining it in a reader above would make a cycle. Raised by every store, so its
+    MCP error code is store-neutral (`database_unavailable` in `read_mcp._CODES`), and it has no
+    alias: an alias of an exception something branches on makes a wrong branch look right.
+    History: docs/history/sqlite-reads.md.
     """
 
 
@@ -61,11 +44,10 @@ DEFAULT_BUSY_TIMEOUT_MS = 5000
 # understanding rather than a tuning knob.
 #
 # `busy_timeout` exists so a real query rides out a brief write burst. Applying it to the
-# probe means the opposite: with Zotero running and holding the rollback-journal lock,
-# `mode=ro` cannot succeed no matter how long we wait, so the probe blocks for the FULL
-# timeout and only then falls back. Measured 2026-08-19 against the live library:
-# 5,151 ms to open a connection, versus 19 ms for the query it was opening for. Every
-# read in this package paid that whenever Zotero was open, which is nearly always.
+# probe means the opposite: with Zotero running and holding its lock, `mode=ro` cannot
+# succeed no matter how long we wait, so the probe would block for the FULL timeout and
+# only then fall back -- seconds per open for a query that takes milliseconds. The
+# measurement: docs/history/sqlite-reads.md.
 #
 # A short probe trades a slightly higher chance of choosing the `immutable=1` snapshot --
 # reported honestly in `read_mode`, never hidden -- for a two-order-of-magnitude speedup.

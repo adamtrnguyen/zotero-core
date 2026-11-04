@@ -17,12 +17,8 @@ Structural, so the adapters satisfy these by SHAPE and never import them — whi
 `infrastructure` free of an upward import and keeps the port definitions honest, since a
 port nobody imports cannot drift into a base class carrying behaviour.
 
-⚠ THE USUAL REASON GIVEN FOR THIS CHOICE WAS FALSE. The plan justified `Protocol` on the
-grounds that `transports/cookjohn.py` is "vendored verbatim into `calibre-zotero-jump`"
-and so must import nothing. It is not vendored anywhere (checked 2026-08-19: that
-plugin's `build.sh` zips three files, none of them cookjohn, and its `ui.py` reimplements
-the client), and `cookjohn.py` imports `zotero_core.domain.errors` at module scope
-regardless. The choice survives on the reasons above; the vendoring argument does not.
+Not because `cookjohn.py` is vendored anywhere: it is not, and it imports
+`zotero_core.domain` regardless. See docs/history/package-structure.md.
 
 `@runtime_checkable` because `arete` already uses that form for `ContentCache`, and
 because it makes the fakes assertable as real implementations rather than as subclasses
