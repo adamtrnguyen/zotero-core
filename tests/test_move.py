@@ -162,6 +162,27 @@ def test_a_failing_remove_rolls_the_add_back(zotero, cookjohn, session):
     assert zotero.collection_members(dst) == []
 
 
+def test_a_rollback_leaves_items_that_were_already_in_the_target(zotero, cookjohn, session):
+    """The rollback undoes the ADD, and the add changed nothing for an item already filed
+    in the target -- so the rollback must not unfile it from there."""
+    src, dst = _setup(zotero)
+    zotero.add_to_collection("AAAA1111", dst)
+    real_call = cookjohn.call
+
+    def fail_the_remove(tool, args):
+        if tool == "remove_items_from_collection" and args["collectionKey"] == src:
+            raise RuntimeError("cookjohn fell over")
+        return real_call(tool, args)
+
+    cookjohn.call = fail_the_remove
+    with pytest.raises(WriteBlocked) as excinfo:
+        move_items_between_collections(src, dst, ["AAAA1111", "BBBB2222"], session=session)
+
+    assert excinfo.value.code == Reason.ROLLED_BACK
+    assert zotero.collection_members(src) == ["AAAA1111", "BBBB2222"]
+    assert zotero.collection_members(dst) == ["AAAA1111"]
+
+
 def test_a_failing_rollback_is_reported_as_partial_not_rolled_back(zotero, cookjohn, session):
     """The one path that leaves a state nobody asked for. It must not be quiet."""
     src, dst = _setup(zotero)

@@ -544,6 +544,13 @@ def move_items_between_collections(
             {"not_in_source": absent, "source_holds": sorted(before)},
         )
 
+    target_before = {
+        m.item_key
+        for m in session.collections.items(to_collection_key, include_trashed=True).members
+    }
+    # The rollback undoes the add, and the add changed nothing for these.
+    new_to_target = [key for key in keys if key not in target_before]
+
     manifest = session.journal.write_manifest(
         "move_items_between_collections",
         before={
@@ -551,6 +558,7 @@ def move_items_between_collections(
             "to_collection_key": to_collection_key,
             "item_keys": keys,
             "source_members_before": sorted(before),
+            "already_in_target": sorted(set(keys) & target_before),
         },
         inverse=(
             f"move_items_between_collections({to_collection_key!r}, "
@@ -568,14 +576,15 @@ def move_items_between_collections(
             {"collectionKey": from_collection_key, "itemKeys": keys},
         )
     except Exception as exc:
-        # Undo the add so the library is where it started. If the undo ALSO fails the
-        # caller must be told loudly -- that is the one path here that leaves a state
-        # nobody asked for.
+        # Undo the add so the library is where it started: unfile only what the add
+        # filed. If the undo ALSO fails the caller must be told loudly -- that is the one
+        # path here that leaves a state nobody asked for.
         try:
-            session.cookjohn.call(
-                "remove_items_from_collection",
-                {"collectionKey": to_collection_key, "itemKeys": keys},
-            )
+            if new_to_target:
+                session.cookjohn.call(
+                    "remove_items_from_collection",
+                    {"collectionKey": to_collection_key, "itemKeys": new_to_target},
+                )
         except Exception as undo_exc:
             raise WriteBlocked(
                 Reason.PARTIAL_APPLY,
